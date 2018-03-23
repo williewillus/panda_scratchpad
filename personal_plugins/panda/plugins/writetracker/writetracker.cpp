@@ -16,37 +16,78 @@ extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong a
                        target_ulong size, void *buf) {
     if (addr >= range_start && addr < range_end) {
         writes++;
-	*output << "got a write at " << std::hex << addr << std::endl;
+	*output << std::hex << "[pc 0x" << pc << "] got a write at " << addr << std::endl;
     }
     return 0;
 }
 
-static bool is_flush(CPUState *env, target_ulong pc) {
-  uint8_t insn[3];
-  int err = panda_virtual_memory_read(env, pc, insn, 3);
+static int reg_from_rm(uint8_t rm) {
+  switch(rm) {
+    case 0: return R_EAX;
+    case 1: return R_ECX;
+    case 3: return R_EDX;
+    case 4: return R_EBX;
+    case 7: return R_ESI;
+    case 8: return R_EDI;
+    default: return -1; 
+    // NOTE: Doesn't account for exotic prefixes (like using %ds or extended registers like %r8)
+    //       Nor does this account for displacement or SIB suffixes
+
+  }
+}
+
+static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_out) {
+  auto x86_env = (CPUX86State *)((CPUState*) env->env_ptr);
+  uint8_t insn[4];
+  int err = panda_virtual_memory_read(env, pc, insn, 4);
   if (err < 0) {
     std::cout << "Error reading insns!" << std::endl;
     return false;
   }
 
-  if (insn[0] == 0x0F && insn[1] == 0xAE) // clflush
-    return true;
+  if (insn[0] == 0x0F && insn[1] == 0xAE)
+  {
+    uint8_t reg = (insn[2] >> 3) & 7;
+    uint8_t rm = insn[2] & 7;
+    if (reg == 7 && reg_from_rm(rm) > -1) // clflush: 0f ae modrm.reg == 7
+    {
+       uint8_t rm = insn[2] & 7;
+       if (flush_addr_out) {
+         *output << "clflush " << reg_from_rm(rm) << "?" << std::endl;
+         *flush_addr_out = x86_env->regs[reg_from_rm(rm)];
+       }
+       return true;
+    }
+  }
   
-  if (insn[0] == 0x66 && insn[1] == 0x0F && insn[2] == 0xAE) // clflushopt and clwb (distinguished by modrm byte which we do not examine)
-    return true;
+  if (insn[0] == 0x66 && insn[1] == 0x0F && insn[2] == 0xAE)
+  {
+    uint8_t reg = (insn[3] >> 3) & 7;
+    uint8_t rm = insn[3] & 7;
+    if ((reg == 6 || reg == 7) && reg_from_rm(rm) > -1) // clwb and clflushopt: 66 0f ae modrm.reg == 6 or 7
+    {
+       uint8_t rm = insn[3] & 7;
+       if (flush_addr_out) {
+         *output << "clwb|clflushopt " << reg_from_rm(rm) << "?" << std::endl;
+         *flush_addr_out = x86_env->regs[reg_from_rm(rm)];
+       }
+       return true;
+    }
+  }
 
   return false;
 }
 
 extern "C" bool translate_callback(CPUState *env, target_ulong pc) {
-  return is_flush(env, pc);
+  return is_flush(env, pc, nullptr);
 }
 
 extern "C" int exec_callback(CPUState *env, target_ulong pc) {
-  if (is_flush(env, pc)) {
-    *output << "flush at ???" << std::endl;// TODO extract the address by examining the instruction and looking in the register it points to
+  target_ulong flush_addr = 0xdeadbeef;
+  if (is_flush(env, pc, &flush_addr)) {
+    *output << std::hex << "[pc 0x" << pc << "] flush at " << flush_addr << std::endl;
   } else {
-    // std::cout << "WARNING: exec callback running for non-flush!" << std::endl;
+    std::cout << "WARNING: exec callback running for non-flush!" << std::endl;
   }
   return 0;
 }
@@ -76,6 +117,7 @@ extern "C" bool init_plugin(void *self) {
     panda_register_callback(self, PANDA_CB_PHYS_MEM_BEFORE_WRITE, pcb);
 
     output = std::unique_ptr<std::ofstream>(new std::ofstream("wt.out", std::ios::binary));
+
     return true;
 }
 
