@@ -25,10 +25,10 @@ static int reg_from_rm(uint8_t rm) {
   switch(rm) {
     case 0: return R_EAX;
     case 1: return R_ECX;
-    case 3: return R_EDX;
-    case 4: return R_EBX;
-    case 7: return R_ESI;
-    case 8: return R_EDI;
+    case 2: return R_EDX;
+    case 3: return R_EBX;
+    case 6: return R_ESI;
+    case 7: return R_EDI;
     default: return -1; 
     // NOTE: Doesn't account for exotic prefixes (like using %ds or extended registers like %r8)
     //       Nor does this account for displacement or SIB suffixes
@@ -53,7 +53,7 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
     {
        uint8_t rm = insn[2] & 7;
        if (flush_addr_out) {
-         *output << "clflush " << reg_from_rm(rm) << "?" << std::endl;
+         *output << "clflush " << reg_from_rm(rm) <<  std::endl;
          *flush_addr_out = x86_env->regs[reg_from_rm(rm)];
        }
        return true;
@@ -68,7 +68,7 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
     {
        uint8_t rm = insn[3] & 7;
        if (flush_addr_out) {
-         *output << "clwb|clflushopt " << reg_from_rm(rm) << "?" << std::endl;
+         *output << "clwb|clflushopt " << reg_from_rm(rm) << std::endl;
          *flush_addr_out = x86_env->regs[reg_from_rm(rm)];
        }
        return true;
@@ -122,7 +122,7 @@ extern "C" bool init_plugin(void *self) {
 }
 
 extern "C" void uninit_plugin(void *self) {
-    std::cout << "writetracker unloading" << std::endl;
-    std::cout << "writes to range " << std::dec << writes << std::endl;
+    output << "writetracker unloading" << std::endl;
+    output << "writes to range " << std::dec << writes << std::endl;
     output.reset();
 }
