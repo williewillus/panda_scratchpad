@@ -49,12 +49,22 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
   {
     uint8_t reg = (insn[2] >> 3) & 7;
     uint8_t rm = insn[2] & 7;
-    if (reg == 7 && reg_from_rm(rm) > -1) // clflush: 0f ae modrm.reg == 7
+    auto target_reg = reg_from_rm(rm);
+    if (reg == 7 && target_reg > -1) // clflush: 0f ae modrm.reg == 7
     {
-       uint8_t rm = insn[2] & 7;
        if (flush_addr_out) {
-         *output << "clflush " << reg_from_rm(rm) <<  std::endl;
-         *flush_addr_out = x86_env->regs[reg_from_rm(rm)];
+         *output << "clflush register " << target_reg <<  std::endl;
+         target_ulong addr = x86_env->regs[target_reg];
+         
+         union {
+           target_ulong flush_addr;
+           uint8_t flush_addr_bytes[sizeof(target_ulong)];
+         } fa; 
+         
+         err = panda_virtual_memory_read(env, addr, fa.flush_addr_bytes, sizeof(target_ulong));
+         if (err < 0)
+           *output << "Error reading target address" << std::endl;
+         *flush_addr_out = __builtin_bswap64(fa.flush_addr);
        }
        return true;
     }
@@ -69,6 +79,7 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
        uint8_t rm = insn[3] & 7;
        if (flush_addr_out) {
          *output << "clwb|clflushopt " << reg_from_rm(rm) << std::endl;
+         // FIXME after clflush working
          *flush_addr_out = x86_env->regs[reg_from_rm(rm)];
        }
        return true;
@@ -122,7 +133,7 @@ extern "C" bool init_plugin(void *self) {
 }
 
 extern "C" void uninit_plugin(void *self) {
-    output << "writetracker unloading" << std::endl;
-    output << "writes to range " << std::dec << writes << std::endl;
+    *output << "writetracker unloading" << std::endl;
+    *output << "writes to range " << std::dec << writes << std::endl;
     output.reset();
 }
