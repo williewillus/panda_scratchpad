@@ -16,7 +16,7 @@ extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong a
                        target_ulong size, void *buf) {
     if (addr >= range_start && addr < range_end) {
         writes++;
-	*output << std::hex << "[pc 0x" << pc << "] got a write at " << addr << std::endl;
+	*output << std::hex << "[pc 0x" << pc << "] got a write of size " << size << " at " << addr << std::endl;
     }
     return 0;
 }
@@ -47,6 +47,12 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
 
   if (insn[0] == 0x0F && insn[1] == 0xAE)
   {
+    if (insn[2] >= 0xE8 && insn[2] <= 0xEF) // exclude lfence
+      return false;
+    if (insn[2] >= 0xF0 /* && insn[2] <= 0xFF*/) { // mfence 0xF0-0xF7, sfence 0xF8-0xFF
+      *flush_addr_out = -1;
+      return true;
+    } 
     uint8_t reg = (insn[2] >> 3) & 7;
     uint8_t rm = insn[2] & 7;
     auto target_reg = reg_from_rm(rm);
@@ -55,6 +61,10 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
        if (flush_addr_out) {
          target_ulong va = x86_env->regs[target_reg];
          *flush_addr_out = panda_virt_to_phys(env, va);
+         if (*flush_addr_out == -1) {
+           *output << "[pc 0x" << pc << "] flush at unmapped address? va: " << va << std::endl;
+           return false;
+         }
        }
        return true;
     }
@@ -70,6 +80,10 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
        if (flush_addr_out) {
          target_ulong va = x86_env->regs[target_reg]; 
          *flush_addr_out = panda_virt_to_phys(env, va);
+         if (*flush_addr_out == -1) {
+           *output << "flush at unmapped address? va: " << va << std::endl;
+           return false;
+         }
        }
        return true;
     }
@@ -113,8 +127,8 @@ extern "C" bool init_plugin(void *self) {
     panda_register_callback(self, PANDA_CB_INSN_EXEC, pcb);
 
     pcb = {};
-    pcb.phys_mem_before_write = mem_write_callback;
-    panda_register_callback(self, PANDA_CB_PHYS_MEM_BEFORE_WRITE, pcb);
+    pcb.phys_mem_after_write = mem_write_callback;
+    panda_register_callback(self, PANDA_CB_PHYS_MEM_AFTER_WRITE, pcb);
 
     output = std::unique_ptr<std::ofstream>(new std::ofstream("wt.out", std::ios::binary));
 
