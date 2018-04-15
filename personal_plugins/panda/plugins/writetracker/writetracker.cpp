@@ -36,7 +36,7 @@ static int reg_from_rm(uint8_t rm) {
   }
 }
 
-static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_out) {
+static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
   auto x86_env = (CPUX86State *)((CPUState*) env->env_ptr);
   uint8_t insn[4];
   int err = panda_virtual_memory_read(env, pc, insn, 4);
@@ -50,7 +50,8 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
     if (insn[2] >= 0xE8 && insn[2] <= 0xEF) // exclude lfence
       return false;
     if (insn[2] >= 0xF0 /* && insn[2] <= 0xFF*/) { // mfence 0xF0-0xF7, sfence 0xF8-0xFF
-      *flush_addr_out = -1;
+      if (!is_translate)
+        *output << "[pc 0x" << pc << "] mfence/sfence" << std::endl;
       return true;
     } 
     uint8_t reg = (insn[2] >> 3) & 7;
@@ -58,12 +59,14 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
     auto target_reg = reg_from_rm(rm);
     if (reg == 7 && target_reg > -1) // clflush: 0f ae modrm.reg == 7
     {
-       if (flush_addr_out) {
+       if (!is_translate) {
          target_ulong va = x86_env->regs[target_reg];
-         *flush_addr_out = panda_virt_to_phys(env, va);
-         if (*flush_addr_out == -1) {
+         target_ulong pa = panda_virt_to_phys(env, va);
+         if (pa == -1) {
            *output << "[pc 0x" << pc << "] flush at unmapped address? va: " << va << std::endl;
            return false;
+         } else {
+           *output << "[pc 0x" << pc << "] clflush at pa " << pa << std::endl;
          }
        }
        return true;
@@ -77,12 +80,14 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
     auto target_reg = reg_from_rm(rm);
     if ((reg == 6 || reg == 7) && target_reg > -1) // clwb and clflushopt: 66 0f ae modrm.reg == 6 or 7
     {
-       if (flush_addr_out) {
-         target_ulong va = x86_env->regs[target_reg]; 
-         *flush_addr_out = panda_virt_to_phys(env, va);
-         if (*flush_addr_out == -1) {
-           *output << "flush at unmapped address? va: " << va << std::endl;
+       if (!is_translate) {
+         target_ulong va = x86_env->regs[target_reg];
+         target_ulong pa = panda_virt_to_phys(env, va);
+         if (pa == -1) {
+           *output << "[pc 0x" << pc << "] flush at unmapped address? va: " << va << std::endl;
            return false;
+         } else {
+           *output << "[pc 0x" << pc << "] clwb/clflushopt at pa " << pa << std::endl;
          }
        }
        return true;
@@ -93,14 +98,11 @@ static bool is_flush(CPUState *env, target_ulong pc, target_ulong* flush_addr_ou
 }
 
 extern "C" bool translate_callback(CPUState *env, target_ulong pc) {
-  return is_flush(env, pc, nullptr);
+  return check_flush(env, pc, false);
 }
 
 extern "C" int exec_callback(CPUState *env, target_ulong pc) {
-  target_ulong flush_addr = 0xdeadbeef;
-  if (is_flush(env, pc, &flush_addr)) {
-    *output << std::hex << "[pc 0x" << pc << "] flush at " << flush_addr << std::endl;
-  } else {
+  if (!check_flush(env, pc, true)) {
     std::cout << "WARNING: exec callback running for non-flush!" << std::endl;
   }
   return 0;
