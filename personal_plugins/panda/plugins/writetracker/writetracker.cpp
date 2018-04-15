@@ -63,7 +63,7 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
          target_ulong va = x86_env->regs[target_reg];
          target_ulong pa = panda_virt_to_phys(env, va);
          if (pa == -1) {
-           *output << "[pc 0x" << pc << "] flush at unmapped address? va: " << va << std::endl;
+           *output << "[pc 0x" << pc << "] clflush at unmapped address? va: " << va << std::endl;
            return false;
          } else {
            *output << "[pc 0x" << pc << "] clflush at pa " << pa << std::endl;
@@ -84,7 +84,7 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
          target_ulong va = x86_env->regs[target_reg];
          target_ulong pa = panda_virt_to_phys(env, va);
          if (pa == -1) {
-           *output << "[pc 0x" << pc << "] flush at unmapped address? va: " << va << std::endl;
+           *output << "[pc 0x" << pc << "] clwb/clflushopt at unmapped address? va: " << va << std::endl;
            return false;
          } else {
            *output << "[pc 0x" << pc << "] clwb/clflushopt at pa " << pa << std::endl;
