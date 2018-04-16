@@ -12,11 +12,36 @@ static unsigned long writes = 0;
 
 static std::unique_ptr<std::ofstream> output;
 
+enum event_type : int {
+  WRITE,
+  FLUSH,
+  FENCE,
+};
+
+static void log_output(target_ulong pc, event_type type, target_ulong addr, target_ulong write_size, void* write_data) {
+  output->write(reinterpret_cast<char*>(&pc), sizeof(pc));
+  output->write(reinterpret_cast<char*>(&type), sizeof(type));
+  switch (type) {
+  case WRITE: {
+    output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
+    output->write(reinterpret_cast<char*>(&write_size), sizeof(write_size));
+    output->write(reinterpret_cast<char*>(write_data), write_size);
+    break;
+  }
+  case FLUSH: {
+    output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
+    break;
+  }
+  default:
+  case FENCE: break;
+  }
+}
+
 extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong addr,
                        target_ulong size, void *buf) {
     if (addr >= range_start && addr < range_end) {
         writes++;
-	*output << std::hex << "[pc 0x" << pc << "] got a write of size " << size << " at " << addr << std::endl;
+        log_output(pc, WRITE, addr, size, buf);
     }
     return 0;
 }
@@ -51,7 +76,7 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
       return false;
     if (insn[2] >= 0xF0 /* && insn[2] <= 0xFF*/) { // mfence 0xF0-0xF7, sfence 0xF8-0xFF
       if (!is_translate)
-        *output << "[pc 0x" << pc << "] mfence/sfence" << std::endl;
+        log_output(pc, FENCE, 0, 0, nullptr);
       return true;
     } 
     uint8_t reg = (insn[2] >> 3) & 7;
@@ -63,10 +88,10 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
          target_ulong va = x86_env->regs[target_reg];
          target_ulong pa = panda_virt_to_phys(env, va);
          if (pa == -1) {
-           *output << "[pc 0x" << pc << "] clflush at unmapped address? va: " << va << std::endl;
+           std::cout << "[pc 0x" << pc << "] clflush at unmapped address? va: " << va << std::endl;
            return false;
          } else {
-           *output << "[pc 0x" << pc << "] clflush at pa " << pa << std::endl;
+           log_output(pc, FLUSH, pa, 0, nullptr);
          }
        }
        return true;
@@ -84,10 +109,10 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
          target_ulong va = x86_env->regs[target_reg];
          target_ulong pa = panda_virt_to_phys(env, va);
          if (pa == -1) {
-           *output << "[pc 0x" << pc << "] clwb/clflushopt at unmapped address? va: " << va << std::endl;
+           std::cout << "[pc 0x" << pc << "] clwb/clflushopt at unmapped address? va: " << va << std::endl;
            return false;
          } else {
-           *output << "[pc 0x" << pc << "] clwb/clflushopt at pa " << pa << std::endl;
+           log_output(pc, FLUSH, pa, 0, nullptr);
          }
        }
        return true;
@@ -138,7 +163,5 @@ extern "C" bool init_plugin(void *self) {
 }
 
 extern "C" void uninit_plugin(void *self) {
-    *output << "writetracker unloading" << std::endl;
-    *output << "writes to range " << std::dec << writes << std::endl;
     output.reset();
 }
