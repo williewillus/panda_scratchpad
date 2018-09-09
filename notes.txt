@@ -1,0 +1,23 @@
+=== 20180909
+what we have:
+* ability to capture writes to pmem from live vm
+
+what we want:
+* given a live vm
+  * write and restore a given pmem state
+    * can be done with plugin_cmd (but it doesn't seem to work?)
+    * pmemsave?
+  * run arbitrary commands inside the vm
+
+possible workflow:
+* run all nova tests, capture writes to pmem using writetracker
+* reboot vm/reinit pmem
+  * permute and epoch
+  * for each permutation
+    * restore pmem state
+    * check valid
+
+end status:
+* asking panda-users about missing plugin-cmd command
+
+===
