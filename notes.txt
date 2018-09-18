@@ -1,3 +1,13 @@
+=== 20180917
+what we have:
+* comment out broken plugins to build panda properly
+* no one has responded to my message....
+* set up ssh-ing into vm, now accessible from host port 2222
+* sent mail to qemu list for restoration version of pmemsave
+  * alternatively, since I have ssh access, can do pmem saves and restores purely through ssh
+  * scp program, image into vm
+  * run `ssh -p 2222 root@localhost <dump/restore>`
+
 === 20180909
 what we have:
 * ability to capture writes to pmem from live vm
