@@ -34,12 +34,12 @@ int main(int argc, char* argv[]) {
       input.read(reinterpret_cast<char*>(&write_size), sizeof(write_size));
       write_data.resize(write_size);
       input.read(write_data.data(), write_size);
-      std::cout << "[pc 0x" << std::hex << pc << "] write to " << addr << ", size " << write_size << std::endl;
+      std::cout << "[pc 0x" << std::hex << pc << "] write to VA " << addr << ", size " << write_size << std::endl;
       break;
     }
     case FLUSH: {
       input.read(reinterpret_cast<char*>(&addr), sizeof(addr));
-      std::cout << "[pc 0x" << std::hex << pc << "] flush at PA " << addr << std::endl;
+      std::cout << "[pc 0x" << std::hex << pc << "] flush at VA " << addr << std::endl;
       break;
     }
     case FENCE: {

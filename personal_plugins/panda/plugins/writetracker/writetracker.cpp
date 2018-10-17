@@ -37,11 +37,12 @@ static void log_output(target_ulong pc, event_type type, target_ulong addr, targ
   }
 }
 
-extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong addr,
+extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong va,
                        target_ulong size, void *buf) {
-    if (addr >= range_start && addr < range_end) {
+    target_ulong pa = panda_virt_to_phys(env, va);
+    if (pa >= range_start && pa < range_end) {
         writes++;
-        log_output(pc, WRITE, addr, size, buf);
+        log_output(pc, WRITE, va, size, buf);
     }
     return 0;
 }
@@ -91,7 +92,7 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
            std::cout << "[pc 0x" << pc << "] clflush at unmapped address? va: " << va << std::endl;
            return false;
          } else {
-           log_output(pc, FLUSH, pa, 0, nullptr);
+           log_output(pc, FLUSH, va, 0, nullptr);
          }
        }
        return true;
@@ -112,7 +113,7 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
            std::cout << "[pc 0x" << pc << "] clwb/clflushopt at unmapped address? va: " << va << std::endl;
            return false;
          } else {
-           log_output(pc, FLUSH, pa, 0, nullptr);
+           log_output(pc, FLUSH, va, 0, nullptr);
          }
        }
        return true;
@@ -130,6 +131,11 @@ extern "C" int exec_callback(CPUState *env, target_ulong pc) {
   if (!check_flush(env, pc, true)) {
     std::cout << "WARNING: exec callback running for non-flush!" << std::endl;
   }
+  return 0;
+}
+
+extern "C" int monitor_callback(Monitor* mon, const char* cmd) {
+  std::cout << "Got command " << cmd << std::endl;
   return 0;
 }
 
@@ -154,8 +160,12 @@ extern "C" bool init_plugin(void *self) {
     panda_register_callback(self, PANDA_CB_INSN_EXEC, pcb);
 
     pcb = {};
-    pcb.phys_mem_after_write = mem_write_callback;
-    panda_register_callback(self, PANDA_CB_PHYS_MEM_AFTER_WRITE, pcb);
+    pcb.virt_mem_after_write = mem_write_callback;
+    panda_register_callback(self, PANDA_CB_VIRT_MEM_AFTER_WRITE, pcb);
+
+    pcb = {};
+    pcb.monitor = monitor_callback;
+    panda_register_callback(self, PANDA_CB_MONITOR, pcb);
 
     output = std::unique_ptr<std::ofstream>(new std::ofstream("wt.out", std::ios::binary));
 
