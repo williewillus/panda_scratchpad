@@ -20,6 +20,8 @@
   * From here, you can load the writetracker plugin using `load_plugin writetracker start=<start_address>,end=<end_address>`
   * The plugin can be stopped and unloaded by using `list_plugins` to get writetracker's index (first column), then doing `unload_plugin <idx>`
   * Exit the monitor using ctrl-esc, then `telnet> close`
+* Whenever the plugin is unloaded, it writes all of its tracked writes into `wt.out`, overwriting of it exists already.
+* The out file can be read with the `src/reader.cpp` program (very rough frontend right now, and likely to change)
 
 # Compiling NOVA
 * NOTE: Currently, I'm having troubles getting NOVA master (4.18) to run in the VM properly (the pmem devices are not being recognized). For now, we should just continue running the vm with the existing 4.13 kernel
