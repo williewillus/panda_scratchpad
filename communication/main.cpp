@@ -32,6 +32,9 @@ int main(int argc, char** argv) {
 		delete vm;
 		return -1;
 	}
+	sleep(5);
+  	SockMessage* msg;
+	vm->ReceiveReply(msg);
 
 	delete vm;
 	return 0;

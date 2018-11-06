@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include <cstring>
+#include <sys/ioctl.h>
 
 #include "ClientSide.h"
 
@@ -68,11 +69,12 @@ SockError ClientSocket::SendCommand( QemuCommand cmd ) {
 	msg.q_cmd = cmd;
 	
 	//Send the actual message now
-	const char* list = "load_plugin writetracker";
-	if (send( sockfd, list, strlen(list), 0) < 0) {
+	char* list = "load_plugin writetracker";
+	if ( write( sockfd, list, strlen(list)*sizeof(char)) < 0) {
 		err = eOther;
 		return err;
 	}
+	cout << "Length of write"  << strlen(list) << endl;
 	/*int bytes_written = 0;
   	do {
     		int res = send(socket, (char*) &d + bytes_written,
@@ -88,7 +90,23 @@ SockError ClientSocket::SendCommand( QemuCommand cmd ) {
 
 SockError ClientSocket::ReceiveReply(SockMessage *msg) {
 	SockError err = eNone;
+	int valread;
+	int len = 0;
+	ioctl(sockfd, FIONREAD, &len);
+	cout << "Expected length of reply = " << len  << endl;
+	//char *buffer = (char*)malloc ((len+1)* sizeof(char));
+	char buffer[len];
+	int bytes_read = 0;
+	do {
+		valread = recv( sockfd , buffer + bytes_read, len - bytes_read, 0);
+    		if (valread <= 0){
+			err = eOther;
+			return err;
+		}
+		bytes_read += valread;
+	}while (bytes_read < len);
 
+	cout  << "Read data = " << buffer << endl;
 	return err;
 }
 
