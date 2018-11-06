@@ -69,8 +69,9 @@ SockError ClientSocket::SendCommand( QemuCommand cmd ) {
 	msg.q_cmd = cmd;
 	
 	//Send the actual message now
-	char* list = "load_plugin writetracker";
-	if ( write( sockfd, list, strlen(list)*sizeof(char)) < 0) {
+	const char* list = "load_plugin writetracker\n";
+	//const char* list = "unload_plugin 0\n";
+	if ( send( sockfd, list, strlen(list), 0) < 0) {
 		err = eOther;
 		return err;
 	}
