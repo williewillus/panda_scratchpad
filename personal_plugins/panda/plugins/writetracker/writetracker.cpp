@@ -26,14 +26,18 @@ static void log_output(target_ulong pc, event_type type, target_ulong addr, targ
     output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
     output->write(reinterpret_cast<char*>(&write_size), sizeof(write_size));
     output->write(reinterpret_cast<char*>(write_data), write_size);
+    std::cout << "\nWrite ins" << std::endl;
     break;
   }
   case FLUSH: {
     output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
+    std::cout << "\nFlush ins" << std::endl;
     break;
   }
   default:
-  case FENCE: break;
+  case FENCE:
+    std::cout << "\nFence ins" << std::endl;
+    break;
   }
 }
 
@@ -142,7 +146,7 @@ extern "C" int monitor_callback(Monitor* mon, const char* cmd) {
 extern "C" bool init_plugin(void *self) {
     panda_arg_list *args = panda_get_args("writetracker");
     range_start = panda_parse_ulong_opt(args, "start", 0x40000000, "Start address tracking range, default 1G");
-    range_end = panda_parse_ulong_opt(args, "end", 0x80000000, "End address (exclusive) of tracking range, default 2G"); 
+    range_end = panda_parse_ulong_opt(args, "end", 0x48000000, "End address (exclusive) of tracking range, default 1G+128MB"); 
     std::cout << "writetracker loading" << std::endl;
     std::cout << "tracking range [" << std::hex << range_start << ", " << std::hex << range_end << ")" << std::endl;
 
