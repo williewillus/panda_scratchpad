@@ -158,8 +158,8 @@ extern "C" bool init_plugin(void *self) {
     panda_register_callback(self, PANDA_CB_INSN_EXEC, pcb);
 
     pcb = {};
-    pcb.virt_mem_after_write = mem_write_callback;
-    panda_register_callback(self, PANDA_CB_VIRT_MEM_AFTER_WRITE, pcb);
+    pcb.phys_mem_after_write = mem_write_callback;
+    panda_register_callback(self, PANDA_CB_PHYS_MEM_AFTER_WRITE, pcb);
 
     pcb = {};
     pcb.monitor = monitor_callback;
@@ -172,4 +172,5 @@ extern "C" bool init_plugin(void *self) {
 
 extern "C" void uninit_plugin(void *self) {
     output.reset();
+    panda_disable_memcb();
 }
