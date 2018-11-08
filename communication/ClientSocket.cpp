@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cstring>
 #include <sys/ioctl.h>
+#include <netdb.h>
 
 #include "ClientSide.h"
 
@@ -13,6 +14,7 @@ namespace communication {
 using std::string;
 using std::cout;
 using std::endl;
+using std::to_string;
 
 ClientSocket::ClientSocket(string addr, unsigned int port): sockaddr(addr), sockport(port) {};
 
@@ -21,9 +23,11 @@ ClientSocket::~ClientSocket() {
 	CloseConnection();
 }
 
+// Given a remote ip and port, connect the client to the socket
 int ClientSocket::Init() {
     	struct sockaddr_in server_addr; 
-    	
+    	char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+
 	// Communicate over TCP, IPv4
 	if (( sockfd = socket( AF_INET, SOCK_STREAM, 0 )) < 0) 
     	{	 
@@ -42,9 +46,11 @@ int ClientSocket::Init() {
         	cout << "Invalid address" << endl; 
         	return -1; 
     	} 
-   
+
 	// Now that we've populated address and port, let's connect to the Qemu
 	// socket listening on port *sockport*
+	// TODO (jaya) : This is a blocking connect operation. The current timeout is too large
+	// Need to use select() in non-blocking mode to reduce the timeout.
     	if ( connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr) ) < 0 ) 
     	{ 
         	cout << "Connection Failed" << endl;; 
@@ -54,7 +60,23 @@ int ClientSocket::Init() {
 	return 0;
 }
 
-SockError ClientSocket::SendCommand( QemuCommand cmd ) {
+void ClientSocket::BuildLoadPluginMsg(SockMessage *msg, Plugins plugin_name, string start, string end ) {
+	msg->q_cmd = cLoadPlugin;
+	msg->need_response = false;
+	msg->q_cmd_options->plugin_name =plugin_name;
+	msg->q_cmd_options->start = start;
+	msg->q_cmd_options->end = end;
+}
+
+
+void ClientSocket::BuildUnloadPluginMsg(SockMessage *msg, unsigned int idx) {
+	msg->q_cmd = cUnloadPlugin;
+	msg->need_response = false;
+	msg->q_cmd_options->id = idx;
+	cout << "Id : " << msg->q_cmd_options->id << endl;
+}
+
+SockError ClientSocket::SendCommand( SockMessage *msg ) {
 	SockError err = eNone;
 	
 	// First check if the client is connected
@@ -64,18 +86,64 @@ SockError ClientSocket::SendCommand( QemuCommand cmd ) {
 		return err;
 	}
 	
-	// Create the message packet
-	SockMessage msg;
-	msg.q_cmd = cmd;
-	
-	//Send the actual message now
-	const char* list = "load_plugin writetracker\n";
-	//const char* list = "unload_plugin 0\n";
-	if ( send( sockfd, list, strlen(list), 0) < 0) {
+	// Get the command and the arguments
+	QemuCommand cmd = msg->q_cmd;
+	CommandOpts options = *(msg->q_cmd_options);
+	// Based on the command, build the actual message now
+	string complete_command;
+	bool isCustomStart = false;
+
+	switch(cmd) {
+		case cListPlugins : 
+			complete_command = "list_plugins";
+			break;
+		case cLoadPlugin : 
+			complete_command = "load_plugin ";
+			// Let's see how to handle the available plugins
+			switch(options.plugin_name) {
+				case pWritetracker:
+					complete_command += "writetracker";
+					if (! options.start.empty()) {
+						complete_command += " start=";
+						complete_command += options.start;
+						isCustomStart = true;
+					}
+
+					if (! options.end.empty()) {
+						if (isCustomStart)
+							complete_command += ",";
+						complete_command += "end=";
+						complete_command += options.end;
+					}
+					break;
+				case pReplay:
+					complete_command += "replay";
+					if (! options.start.empty()) {
+						complete_command += " start=";
+						complete_command += options.start;
+					}
+					break;
+				default:
+					cout << "Undefined Plugin" << endl;
+					return eOther;
+			}
+			break;
+		case cUnloadPlugin : 
+			complete_command = "unload_plugin ";
+			complete_command += to_string(options.id);
+			break;
+		default :
+			cout << "Undefined qemu command" << endl;
+			return eOther;
+	}
+	// The command doesn't execute at the monitor without a newline
+	complete_command += "\n";
+	cout << "Command being sent is : " << complete_command << endl;
+	if ( send( sockfd, complete_command.c_str(), complete_command.length(), 0) < 0) {
 		err = eOther;
 		return err;
 	}
-	cout << "Length of write"  << strlen(list) << endl;
+	cout << "Length of write : "  << complete_command.length() << endl;
 	/*int bytes_written = 0;
   	do {
     		int res = send(socket, (char*) &d + bytes_written,

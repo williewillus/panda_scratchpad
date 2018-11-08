@@ -12,7 +12,9 @@ class ClientSocket {
 		ClientSocket(std::string address, unsigned int port);
 		~ClientSocket();
 		int Init();
-		SockError SendCommand(QemuCommand cmd);
+		void BuildLoadPluginMsg(SockMessage *msg, Plugins plugin_name, std::string start, std::string end);
+		void BuildUnloadPluginMsg(SockMessage *msg, unsigned int idx);
+		SockError SendCommand(SockMessage *msg);
 		SockError ReceiveReply(SockMessage *msg);
 		void CloseConnection();
 	private:

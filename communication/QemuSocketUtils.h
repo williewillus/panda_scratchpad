@@ -9,11 +9,24 @@ namespace communication {
 
 typedef enum {
 	cListPlugins,
-	cLoadPlugin
+	cLoadPlugin,
+	cUnloadPlugin
 } QemuCommand;
 
 typedef enum {
-	// Error in connection
+	pWritetracker,
+	pReplay
+}Plugins;
+
+typedef struct {
+	Plugins plugin_name;
+	std::string start;
+	std::string end;
+	unsigned int id;
+}CommandOpts;
+
+
+typedef enum {
 	eNotConnected,
 	eAlreadyConnected,
 	eOther,
@@ -23,7 +36,13 @@ typedef enum {
 struct SockMessage {
 	QemuCommand q_cmd;
 	bool need_response;
-	std::string cmd_options;
+	CommandOpts *q_cmd_options;
+	SockMessage() {
+		q_cmd_options = new CommandOpts();
+	}
+	~SockMessage() {
+		delete q_cmd_options;
+	}
 };
 
 } // namespace communication

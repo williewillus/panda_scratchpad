@@ -107,8 +107,12 @@ int main(int argc, char** argv) {
 
 	ofstream log_file(s);
 
+	/***********************************************************
+	* 1. Connect to the Qemu Monitor
+	************************************************************/
+
 	ClientSocket* vm = NULL;
-	vm = new ClientSocket("192.168.122.1", 4444);
+	vm = new ClientSocket(remote_ip, remote_port);
 	
 	//initialize and connect to socket 
 	if (vm->Init() < 0) {
@@ -120,17 +124,88 @@ int main(int argc, char** argv) {
 
 	cout << "Connected to socket" << endl;
 	log_file << "Connected to socket" << endl;
+
+
+	/***********************************************************
+	* 2. Load the writetracker plugin
+	* Build the command to be sent over socket
+	* Send the command
+	*	Now this enables mem tracing within the ranges 
+	*	specified.
+	* (TODO): Is it worth waiting for the reply, which is simply 
+	* 	an echo of the command we sent? Probably grep the 
+	* 	reply string for error messages? But I need to
+	* 	insert a sec of sleep to read the contents  
+	************************************************************/
+
+
+	SockMessage *msg = new SockMessage();
+	vm->BuildLoadPluginMsg(msg, pWritetracker, begin_trace_addr, end_trace_addr);
 	
- 	QemuCommand command = cListPlugins;
-	if (vm->SendCommand( command ) != eNone ) {
+	if (vm->SendCommand(msg) != eNone ) {
 		int err_no = errno;
 		cout << "Error sending message" << endl;
 		delete vm;
 		return -1;
 	}
-//	sleep(1);
-  	SockMessage* msg;
+	sleep(1);
 	vm->ReceiveReply(msg);
+
+	/***********************************************************
+	* 3. Execute the workload
+	************************************************************/
+
+
+	//TODO
+	
+
+	/***********************************************************
+	* 4. UnLoad the writetracker plugin
+	* Build the command to be sent over socket
+	* Send the command
+	* 	This will stop tracing and the results of the output
+	* 	will be in a file named wt.out on the remote host.  
+	************************************************************/
+
+
+	cout << "Waiting before unoad.." << endl;
+	sleep(5);
+
+	msg = new SockMessage();
+	vm->BuildUnloadPluginMsg(msg, 0);
+	
+	if (vm->SendCommand(msg) != eNone ) {
+		int err_no = errno;
+		cout << "Error sending message" << endl;
+		delete vm;
+		return -1;
+	}
+	sleep(1);
+	vm->ReceiveReply(msg);
+
+
+	/***********************************************************
+	* 5. Load the replay plugin
+	* 	This plugin should replay the serialized 
+	* 	traces in the wt.out file at the host
+	*	starting at memory addr denoted by <end>
+	************************************************************/
+
+
+	/***********************************************************
+	* 6. Unload the replay plugin
+	************************************************************/
+
+	/***********************************************************
+	* 7. Perform consistency tests
+	************************************************************/
+	
+
+	/***********************************************************
+	* 8. Cleanup and exit
+	************************************************************/
+
+	delete msg;
 	
 	log_file.close();
 	delete vm;
