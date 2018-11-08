@@ -125,6 +125,12 @@ int main(int argc, char** argv) {
 	cout << "Connected to socket" << endl;
 	log_file << "Connected to socket" << endl;
 
+	//Let's mount the FS now - befor loading the plugin
+	system("mkfs.ext4 -b 4096 /dev/pmem0");
+	string command = "mount -o dax /dev/pmem0 /mnt/pmem0";
+	system(command.c_str());
+	cout << "Mounted file system ext4-dax" << endl;
+	system("mount | grep pmem0");
 
 	/***********************************************************
 	* 2. Load the writetracker plugin
@@ -157,7 +163,8 @@ int main(int argc, char** argv) {
 
 
 	//TODO
-	
+	//dummy workload for now
+	system("./workload.sh");
 
 	/***********************************************************
 	* 4. UnLoad the writetracker plugin
