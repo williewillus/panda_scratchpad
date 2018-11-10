@@ -49,6 +49,10 @@ int main()
    	exit(1);
     }
 
+   // char* random_buf;
+   // random_buf = (char*)malloc(sizeof(char)*5242880); //5MB
+   // memset(random_buf, 'X', 5242880);
+
     printf("File written and fsynced - data = %d\n", res);
     close(fd);
 
