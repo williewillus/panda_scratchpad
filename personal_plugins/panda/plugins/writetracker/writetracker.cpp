@@ -180,10 +180,12 @@ extern "C" bool init_plugin(void *self) {
     std::cout << "writetracker loading" << std::endl;
     std::cout << "tracking range [" << std::hex << range_start << ", " << std::hex << range_end << ")" << std::endl;
 
+   panda_do_flush_tb();
     // Need this to get EIP with our callbacks
     panda_enable_precise_pc();
     // Enable memory logging
     panda_enable_memcb();
+    panda_do_flush_tb();
 
     panda_cb pcb {};
     pcb.insn_translate = translate_callback;

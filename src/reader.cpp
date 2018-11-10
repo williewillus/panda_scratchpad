@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <iterator>
 
 static const int WRITE = 0;
 static const int FLUSH = 1;
@@ -34,7 +35,9 @@ int main(int argc, char* argv[]) {
       input.read(reinterpret_cast<char*>(&write_size), sizeof(write_size));
       write_data.resize(write_size);
       input.read(write_data.data(), write_size);
-      std::cout << "[pc 0x" << std::hex << pc << "] write to VA " << addr << ", size " << write_size << std::endl;
+      std::cout << "[pc 0x" << std::hex << pc << "] write to VA " << addr << ", size " << write_size << ", Data : ";  
+	std::copy(write_data.begin(), write_data.end(), std::ostream_iterator<char>(std::cout, ""));
+	std::cout << std::endl;
       break;
     }
     case FLUSH: {

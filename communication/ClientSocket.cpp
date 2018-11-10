@@ -5,7 +5,6 @@
 #include <iostream>
 #include <cstring>
 #include <sys/ioctl.h>
-#include <netdb.h>
 
 #include "ClientSide.h"
 
@@ -26,7 +25,6 @@ ClientSocket::~ClientSocket() {
 // Given a remote ip and port, connect the client to the socket
 int ClientSocket::Init() {
     	struct sockaddr_in server_addr; 
-    	char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
 
 	// Communicate over TCP, IPv4
 	if (( sockfd = socket( AF_INET, SOCK_STREAM, 0 )) < 0) 
@@ -39,7 +37,6 @@ int ClientSocket::Init() {
    	server_addr.sin_family = AF_INET; 
     	server_addr.sin_port = htons(sockport); 
 
-      
     	// Convert IPv4 addresses from string to address struct in af family 
     	if ( inet_pton( AF_INET, sockaddr.c_str(), &server_addr.sin_addr ) <=0 )  
     	{ 
@@ -56,7 +53,6 @@ int ClientSocket::Init() {
         	cout << "Connection Failed" << endl;; 
         	return -1; 
     	} 
-	
 	return 0;
 }
 
@@ -73,7 +69,6 @@ void ClientSocket::BuildUnloadPluginMsg(SockMessage *msg, unsigned int idx) {
 	msg->q_cmd = cUnloadPlugin;
 	msg->need_response = false;
 	msg->q_cmd_options->id = idx;
-	cout << "Id : " << msg->q_cmd_options->id << endl;
 }
 
 SockError ClientSocket::SendCommand( SockMessage *msg ) {
@@ -89,6 +84,7 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 	// Get the command and the arguments
 	QemuCommand cmd = msg->q_cmd;
 	CommandOpts options = *(msg->q_cmd_options);
+
 	// Based on the command, build the actual message now
 	string complete_command;
 	bool isCustomStart = false;
@@ -136,6 +132,7 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 			cout << "Undefined qemu command" << endl;
 			return eOther;
 	}
+
 	// The command doesn't execute at the monitor without a newline
 	complete_command += "\n";
 	cout << "Command being sent is : " << complete_command << endl;
@@ -143,17 +140,6 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 		err = eOther;
 		return err;
 	}
-	cout << "Length of write : "  << complete_command.length() << endl;
-	/*int bytes_written = 0;
-  	do {
-    		int res = send(socket, (char*) &d + bytes_written,
-        	sizeof(d) - bytes_written, 0);
-    		if (res < 0) {
-      			return -1;
-    		}
-    		bytes_written += res;
-	} while (bytes_written < sizeof(d));
-	*/
 	return err;
 }
 
@@ -163,7 +149,6 @@ SockError ClientSocket::ReceiveReply(SockMessage *msg) {
 	int len = 0;
 	ioctl(sockfd, FIONREAD, &len);
 	cout << "Expected length of reply = " << len  << endl;
-	//char *buffer = (char*)malloc ((len+1)* sizeof(char));
 	char buffer[len];
 	int bytes_read = 0;
 	do {
@@ -175,7 +160,7 @@ SockError ClientSocket::ReceiveReply(SockMessage *msg) {
 		bytes_read += valread;
 	}while (bytes_read < len);
 
-	cout  << "Read data = " << buffer << endl;
+	cout  << "Reply :\n " << buffer << endl;
 	return err;
 }
 
