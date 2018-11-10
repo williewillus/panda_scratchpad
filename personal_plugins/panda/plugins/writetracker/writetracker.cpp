@@ -8,6 +8,8 @@
 static target_ulong range_start;
 static target_ulong range_end;
 
+static std::ofstream ofs;
+
 static unsigned long writes = 0;
 
 static std::unique_ptr<std::ofstream> output;
@@ -26,28 +28,27 @@ static void log_output(target_ulong pc, event_type type, target_ulong addr, targ
     output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
     output->write(reinterpret_cast<char*>(&write_size), sizeof(write_size));
     output->write(reinterpret_cast<char*>(write_data), write_size);
-    std::cout << "\nWrite ins" << std::endl;
+    ofs << "\nWrite ins " << addr;
     break;
   }
   case FLUSH: {
     output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
-    std::cout << "\nFlush ins" << std::endl;
+    ofs << "\nFlush ins";
     break;
   }
   default:
   case FENCE:
-    std::cout << "\nFence ins" << std::endl;
+    ofs << "\nFence ins";
     break;
   }
 }
 
-extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong va,
+extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong pa,
                        target_ulong size, void *buf) {
-    target_ulong pa = panda_virt_to_phys(env, va);
-    if (pa >= range_start && pa < range_end) {
+    //if (pa >= range_start && pa < range_end) {
         writes++;
-        log_output(pc, WRITE, va, size, buf);
-    }
+        log_output(pc, WRITE, pa, size, buf);
+   // }
     return 0;
 }
 
@@ -75,12 +76,39 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
     return false;
   }
 
+ if (insn[0] >= 0x88 && insn[0] <= 0x8F){
+	ofs << "\n" << std::hex << static_cast<int>(insn[1]) << " : Store; ";
+	if (insn[1]==0x6 || insn[1]==0x7){
+		ofs << std::hex << static_cast<int>(insn[0]) << " : is the start ins";;
+		uint8_t rm = insn[1] & 7;
+		auto target_reg = reg_from_rm(rm);
+         	target_ulong va = x86_env->regs[target_reg];
+         	target_ulong pa = panda_virt_to_phys(env, va);
+    		//if (pa >= range_start && pa < range_end) {
+			ofs << "\n\tPhy addr = " << pa;
+		//}
+	}
+ }
+
+ if (insn[0] >= 0xA0 && insn[0] <= 0xA5){
+	ofs << "\n" << std::hex << static_cast<int>(insn[1]) << " : Store-A\n";
+ }
+ if ( insn[0] == 0x0F)	
+  {
+	ofs << std::hex << static_cast<int>(insn[1]) <<" : Could be MovNTI";
+	uint8_t rm = insn[2] & 7;
+	auto target_reg = reg_from_rm(rm);
+         target_ulong va = x86_env->regs[target_reg];
+         target_ulong pa = panda_virt_to_phys(env, va);
+	ofs << "\t Phy addr = " << pa;	
+  }
+  
   if (insn[0] == 0x0F && insn[1] == 0xAE)
   {
     if (insn[2] >= 0xE8 && insn[2] <= 0xEF) // exclude lfence
       return false;
     if (insn[2] >= 0xF0 /* && insn[2] <= 0xFF*/) { // mfence 0xF0-0xF7, sfence 0xF8-0xFF
-      if (!is_translate)
+     // if (!is_translate)
         log_output(pc, FENCE, 0, 0, nullptr);
       return true;
     } 
@@ -96,7 +124,8 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
            std::cout << "[pc 0x" << pc << "] clflush at unmapped address? va: " << va << std::endl;
            return false;
          } else {
-           log_output(pc, FLUSH, va, 0, nullptr);
+	   if (pa >= range_start && pa < range_end)
+           	log_output(pc, FLUSH, pa, 0, nullptr);
          }
        }
        return true;
@@ -123,6 +152,7 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
        return true;
     }
   }
+
 
   return false;
 }
@@ -164,8 +194,9 @@ extern "C" bool init_plugin(void *self) {
     panda_register_callback(self, PANDA_CB_INSN_EXEC, pcb);
 
     pcb = {};
-    pcb.virt_mem_after_write = mem_write_callback;
-    panda_register_callback(self, PANDA_CB_VIRT_MEM_AFTER_WRITE, pcb);
+    pcb.phys_mem_after_write = mem_write_callback;
+    //panda_register_callback(self, PANDA_CB_REPLAY_BEFORE_DMA, pcb);
+    panda_register_callback(self, PANDA_CB_PHYS_MEM_AFTER_WRITE, pcb);
 
     pcb = {};
     pcb.monitor = monitor_callback;
@@ -173,9 +204,13 @@ extern "C" bool init_plugin(void *self) {
 
     output = std::unique_ptr<std::ofstream>(new std::ofstream("wt.out", std::ios::binary));
 
+    ofs.open ("out.log", std::ofstream::out);
     return true;
 }
 
 extern "C" void uninit_plugin(void *self) {
     output.reset();
+    ofs.close();
+    panda_disable_memcb();
+    (void) self;
 }
