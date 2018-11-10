@@ -6,7 +6,7 @@
 #include <ctime>
 #include <sstream>
 #include <fstream>
-
+#include <sys/mount.h>
 #include "ClientSide.h"
 
 #define OPTIONS_LIST "b:e:i:p:v"
@@ -125,13 +125,16 @@ int main(int argc, char** argv) {
 	cout << "Connected to socket" << endl;
 	log_file << "Connected to socket" << endl;
 
+
 	//Let's mount the FS now - befor loading the plugin
 	system("mkfs.ext4 -b 4096 /dev/pmem0");
-	string command = "mount -o dax /dev/pmem0 /mnt/pmem0";
-	system(command.c_str());
+	system("mount -o dax /dev/pmem0 /mnt/pmem0");
+
 	cout << "Mounted file system ext4-dax" << endl;
 	system("mount | grep pmem0");
-
+	sleep(2);
+	//string command = "mount -o dax /dev/pmem0 /mnt/pmem0";
+	//system(command.c_str());
 	/***********************************************************
 	* 2. Load the writetracker plugin
 	* Build the command to be sent over socket
@@ -162,10 +165,22 @@ int main(int argc, char** argv) {
 	************************************************************/
 
 
+
+	sleep(2);
 	//TODO
 	//dummy workload for now
-	system("./workload.sh");
+	//system("./workload seq 4K 4K overwrite 1");
+	//system("./workload seq 1 4K");
+	system("./workload");
 
+	sleep(5);
+	system("ls /mnt/pmem0");
+	system("mount | grep pmem0");
+	if (umount("/mnt/pmem0") < 0) {
+		cout << "Error unmounting" << endl;
+		return -1;
+	}
+	sleep(5);	
 	/***********************************************************
 	* 4. UnLoad the writetracker plugin
 	* Build the command to be sent over socket
@@ -175,7 +190,6 @@ int main(int argc, char** argv) {
 	************************************************************/
 
 
-	cout << "Waiting before unoad.." << endl;
 	sleep(5);
 
 	msg = new SockMessage();
