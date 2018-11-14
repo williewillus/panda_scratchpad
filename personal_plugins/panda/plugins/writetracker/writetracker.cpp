@@ -28,7 +28,7 @@ static void log_output(target_ulong pc, event_type type, target_ulong addr, targ
     output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
     output->write(reinterpret_cast<char*>(&write_size), sizeof(write_size));
     output->write(reinterpret_cast<char*>(write_data), write_size);
-    ofs << "\nWrite ins " << addr;
+    ofs << "\nWrite ins " << addr << "\n";
     break;
   }
   case FLUSH: {
@@ -45,10 +45,10 @@ static void log_output(target_ulong pc, event_type type, target_ulong addr, targ
 
 extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong pa,
                        target_ulong size, void *buf) {
-    //if (pa >= range_start && pa < range_end) {
+    if (pa >= range_start && pa < range_end) {
         writes++;
         log_output(pc, WRITE, pa, size, buf);
-   // }
+    }
     return 0;
 }
 
@@ -180,12 +180,12 @@ extern "C" bool init_plugin(void *self) {
     std::cout << "writetracker loading" << std::endl;
     std::cout << "tracking range [" << std::hex << range_start << ", " << std::hex << range_end << ")" << std::endl;
 
-   panda_do_flush_tb();
+    panda_do_flush_tb();
     // Need this to get EIP with our callbacks
     panda_enable_precise_pc();
     // Enable memory logging
     panda_enable_memcb();
-    panda_do_flush_tb();
+    //panda_do_flush_tb();
 
     panda_cb pcb {};
     pcb.insn_translate = translate_callback;
@@ -214,5 +214,7 @@ extern "C" void uninit_plugin(void *self) {
     output.reset();
     ofs.close();
     panda_disable_memcb();
+    panda_disable_precise_pc();
+    panda_do_flush_tb();
     (void) self;
 }
