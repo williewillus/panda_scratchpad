@@ -1,39 +1,31 @@
-#include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
+
+#include "panda/plugin.h"
 
 static const int WRITE = 0;
 static const int FLUSH = 1;
 static const int FENCE = 2;
 
-int main(int argc, char* argv[]) {
-  if (argc < 2) {
-    std::cerr << "Give input file (wt.out)" << std::endl;
-    return 1;
-  }
+extern "C" bool init_plugin(void *self) {
+    panda_arg_list *args = panda_get_args("replayer");
+    auto base = panda_parse_ulong_opt(args, "base", 0x40000000, "Base physical address to replay at");
+    auto file = panda_parse_string(args, "file", "wt.out");
+    
+    std::cout << "replayer starting at " << std::hex << base << std::endl;
 
-  std::ifstream input(argv[1], std::ios::binary);
+  std::ifstream input(file, std::ios::binary);
   if (!input.good()) {
     std::cerr << "Cannot open file" << std::endl;
-    return 1;
-  }
-
-  int pmem_fd = open("/dev/pmem1", O_WRONLY);
-  if (pmem_fd == -1) {
-    perror("Couldn't open pmem1");
-    return 1;
+    return false;
   }
 
   uint64_t pc;
   int type;
   uint64_t offset;
   uint64_t write_size;
-  std::vector<char> write_data;
+  std::vector<uint8_t> write_data;
 
   while (input) {
     input.read(reinterpret_cast<char*>(&pc), sizeof(pc));
@@ -42,16 +34,9 @@ int main(int argc, char* argv[]) {
     case WRITE: {
       input.read(reinterpret_cast<char*>(&offset), sizeof(offset));
       input.read(reinterpret_cast<char*>(&write_size), sizeof(write_size));
-      if (lseek(pmem_fd, offset, SEEK_SET) == -1) {
-	perror("seek failed");
-	return 1;
-      }
       write_data.resize(write_size);
-      input.read(write_data.data(), write_size);
-      if (write(pmem_fd, write_data.data(), write_size) != write_size) {
-	std::cerr << "Didn't write enough to pmem" << std::endl;
-	return 1;
-      }
+      input.read((char*) write_data.data(), write_size);
+      panda_physical_memory_rw(base + offset, write_data.data(), write_size, true);
       std::cout << "[pc 0x" << std::hex << pc << "] write to offset " << offset << ", size " << write_size << std::endl;
       break;
     }
@@ -66,5 +51,8 @@ int main(int argc, char* argv[]) {
     }
     }
   }
-  std::cout << "done?" << std::endl;
+  std::cout << "replay done" << std::endl;
+  return true;
 }
+
+extern "C" void uninit_plugin(void *self) {}
