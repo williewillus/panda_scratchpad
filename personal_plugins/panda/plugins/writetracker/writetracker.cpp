@@ -20,20 +20,19 @@ enum event_type : int {
   FENCE,
 };
 
-static void log_output(target_ulong pc, event_type type, target_ulong addr, target_ulong write_size, void* write_data) {
+static void log_output(target_ulong pc, event_type type, target_ulong offset, target_ulong write_size, void* write_data) {
   output->write(reinterpret_cast<char*>(&pc), sizeof(pc));
   output->write(reinterpret_cast<char*>(&type), sizeof(type));
   switch (type) {
   case WRITE: {
-    output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
+    output->write(reinterpret_cast<char*>(&offset), sizeof(offset));
     output->write(reinterpret_cast<char*>(&write_size), sizeof(write_size));
     output->write(reinterpret_cast<char*>(write_data), write_size);
     ofs << "\nWrite ins " << addr << "\n";
     break;
   }
   case FLUSH: {
-    output->write(reinterpret_cast<char*>(&addr), sizeof(addr));
-    ofs << "\nFlush ins";
+    output->write(reinterpret_cast<char*>(&offset), sizeof(offset));
     break;
   }
   default:
@@ -46,8 +45,7 @@ static void log_output(target_ulong pc, event_type type, target_ulong addr, targ
 extern "C" int mem_write_callback(CPUState *env, target_ulong pc, target_ulong pa,
                        target_ulong size, void *buf) {
     if (pa >= range_start && pa < range_end) {
-        writes++;
-        log_output(pc, WRITE, pa, size, buf);
+        log_output(pc, WRITE, pa - range_start, size, buf);
     }
     return 0;
 }
@@ -124,8 +122,8 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
            std::cout << "[pc 0x" << pc << "] clflush at unmapped address? va: " << va << std::endl;
            return false;
          } else {
-	   if (pa >= range_start && pa < range_end)
-           	log_output(pc, FLUSH, pa, 0, nullptr);
+           if (pa >= range_start && pa < range_end)
+             log_output(pc, FLUSH, pa - range_start, 0, nullptr);
          }
        }
        return true;
@@ -146,7 +144,8 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
            std::cout << "[pc 0x" << pc << "] clwb/clflushopt at unmapped address? va: " << va << std::endl;
            return false;
          } else {
-           log_output(pc, FLUSH, va, 0, nullptr);
+           if (pa >= range_start && pa < range_end)
+             log_output(pc, FLUSH, pa - range_start, 0, nullptr);
          }
        }
        return true;
@@ -197,7 +196,6 @@ extern "C" bool init_plugin(void *self) {
 
     pcb = {};
     pcb.phys_mem_after_write = mem_write_callback;
-    //panda_register_callback(self, PANDA_CB_REPLAY_BEFORE_DMA, pcb);
     panda_register_callback(self, PANDA_CB_PHYS_MEM_AFTER_WRITE, pcb);
 
     pcb = {};
