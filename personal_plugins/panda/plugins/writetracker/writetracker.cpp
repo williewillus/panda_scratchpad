@@ -10,8 +10,6 @@ static target_ulong range_end;
 
 static std::ofstream ofs;
 
-static unsigned long writes = 0;
-
 static std::unique_ptr<std::ofstream> output;
 
 enum event_type : int {
@@ -28,7 +26,7 @@ static void log_output(target_ulong pc, event_type type, target_ulong offset, ta
     output->write(reinterpret_cast<char*>(&offset), sizeof(offset));
     output->write(reinterpret_cast<char*>(&write_size), sizeof(write_size));
     output->write(reinterpret_cast<char*>(write_data), write_size);
-    ofs << "\nWrite ins " << addr << "\n";
+    ofs << "\nWrite ins " << offset << "\n";
     break;
   }
   case FLUSH: {
