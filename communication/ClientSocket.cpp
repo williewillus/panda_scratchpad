@@ -88,7 +88,7 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 	// Based on the command, build the actual message now
 	string complete_command;
 	bool isCustomStart = false;
-
+	cout << "In send command" << endl;
 	switch(cmd) {
 		case cListPlugins : 
 			complete_command = "list_plugins";
@@ -113,9 +113,9 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 					}
 					break;
 				case pReplay:
-					complete_command += "replay";
+					complete_command += "replayer";
 					if (! options.start.empty()) {
-						complete_command += " start=";
+						complete_command += " base=";
 						complete_command += options.start;
 					}
 					break;
@@ -123,6 +123,7 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 					cout << "Undefined Plugin" << endl;
 					return eOther;
 			}
+			cout << "Plugin cmd = " << complete_command << endl;
 			break;
 		case cUnloadPlugin : 
 			complete_command = "unload_plugin ";

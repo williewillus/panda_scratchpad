@@ -14,6 +14,7 @@
 // By default the writetracker plugin will trace from 1GB - 1GB+128MB
 #define DEFAULT_START_ADDR "0x40000000"
 #define DEFAULT_END_ADDR "0x48000000"
+#define DEFAULT_REPLAY_START_ADDR "0x48000000"
 
 using std::string;
 using std::cout;
@@ -43,10 +44,12 @@ static struct option harness_options[] = {
 int main(int argc, char** argv) {
 
 	// Let's set some default values if the user doesn't provide args
-	string remote_ip("127.0.0.1");
+	string remote_ip("192.168.122.1");
+	//string remote_ip("127.0.0.1");
 	unsigned int remote_port = 4444;
 	string begin_trace_addr(DEFAULT_START_ADDR);
 	string end_trace_addr(DEFAULT_END_ADDR);
+	string begin_replay_addr(DEFAULT_REPLAY_START_ADDR);
 
 	// Parse inputs
 	int option_index = 0;
@@ -127,12 +130,22 @@ int main(int argc, char** argv) {
 
 
 	//Let's mount the FS now - befor loading the plugin
+	system("../src/clear_pmem.sh");
 	system("mkfs.ext4 -b 4096 /dev/pmem0");
 	system("mount -o dax /dev/pmem0 /mnt/pmem0");
 
+	system("umount /mnt/pmem0");
+
+        system("mount -o dax /dev/pmem0 /mnt/pmem0");
 	cout << "Mounted file system ext4-dax" << endl;
-	system("mount | grep pmem0");
-	sleep(2);
+	system("mount | grep ext4");
+
+	
+	system("../src/take_snapshot.sh");
+	system("../src/apply_snapshot.sh");
+
+
+	//sleep(2);
 	//string command = "mount -o dax /dev/pmem0 /mnt/pmem0";
 	//system(command.c_str());
 	/***********************************************************
@@ -157,7 +170,7 @@ int main(int argc, char** argv) {
 		delete vm;
 		return -1;
 	}
-	sleep(1);
+	//sleep(1);
 	vm->ReceiveReply(msg);
 
 	/***********************************************************
@@ -166,21 +179,12 @@ int main(int argc, char** argv) {
 
 
 
-	sleep(2);
 	//TODO
 	//dummy workload for now
 	//system("./workload seq 4K 4K overwrite 1");
 	//system("./workload seq 1 4K");
 	system("./workload");
 
-	sleep(5);
-	system("ls /mnt/pmem0");
-	system("mount | grep pmem0");
-	if (umount("/mnt/pmem0") < 0) {
-		cout << "Error unmounting" << endl;
-		return -1;
-	}
-	sleep(5);	
 	/***********************************************************
 	* 4. UnLoad the writetracker plugin
 	* Build the command to be sent over socket
@@ -188,9 +192,13 @@ int main(int argc, char** argv) {
 	* 	This will stop tracing and the results of the output
 	* 	will be in a file named wt.out on the remote host.  
 	************************************************************/
+        system("ls /mnt/pmem0");
+        system("mount | grep pmem0");
+        if (umount("/mnt/pmem0") < 0) {
+                cout << "Error unmounting" << endl;
+                return -1;
+        }
 
-
-	sleep(5);
 
 	msg = new SockMessage();
 	vm->BuildUnloadPluginMsg(msg, 0);
@@ -201,9 +209,19 @@ int main(int argc, char** argv) {
 		delete vm;
 		return -1;
 	}
-	sleep(1);
+	//sleep(1);
 	vm->ReceiveReply(msg);
 
+
+	/*system("ls /mnt/pmem0");
+	system("mount | grep pmem0");
+	if (umount("/mnt/pmem0") < 0) {
+		cout << "Error unmounting" << endl;
+		return -1;
+	}*/
+
+
+	//system("./apply_snapshot.sh");
 
 	/***********************************************************
 	* 5. Load the replay plugin
@@ -211,16 +229,41 @@ int main(int argc, char** argv) {
 	* 	traces in the wt.out file at the host
 	*	starting at memory addr denoted by <end>
 	************************************************************/
+        msg = new SockMessage();
+        vm->BuildLoadPluginMsg(msg, pReplay, begin_replay_addr, end_trace_addr);
+
+        if (vm->SendCommand(msg) != eNone ) {
+                int err_no = errno;
+                cout << "Error sending message" << endl;
+                delete vm;
+                return -1;
+        }
+        //sleep(1);
+        vm->ReceiveReply(msg);
 
 
 	/***********************************************************
 	* 6. Unload the replay plugin
 	************************************************************/
 
+	sleep(5);
+        msg = new SockMessage();
+        vm->BuildUnloadPluginMsg(msg, 0);
+
+        if (vm->SendCommand(msg) != eNone ) {
+                int err_no = errno;
+                cout << "Error sending message" << endl;
+                delete vm;
+                return -1;
+        }
+        //sleep(1);
+        vm->ReceiveReply(msg);
+
+
 	/***********************************************************
 	* 7. Perform consistency tests
 	************************************************************/
-	
+	system("../src/compare_devices.sh");
 
 	/***********************************************************
 	* 8. Cleanup and exit
