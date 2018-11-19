@@ -30,10 +30,12 @@ int main()
     //int res = write(fd, temp_buf, PAGESIZE);
 
     int res = write(fd, data, strlen(data));
-    if (fsync(fd) < 0) {
+    if (fdatasync(fd) < 0) {
    	perror("Error fsync");
    	exit(1);
     }
+
+    //sync();
     
     printf("File written and fsynced\n");
     close(fd);

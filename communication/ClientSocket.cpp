@@ -8,6 +8,8 @@
 
 #include "ClientSide.h"
 
+#define BUFLEN 4096
+
 namespace communication {
 
 using std::string;
@@ -88,7 +90,6 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 	// Based on the command, build the actual message now
 	string complete_command;
 	bool isCustomStart = false;
-	cout << "In send command" << endl;
 	switch(cmd) {
 		case cListPlugins : 
 			complete_command = "list_plugins";
@@ -123,7 +124,6 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 					cout << "Undefined Plugin" << endl;
 					return eOther;
 			}
-			cout << "Plugin cmd = " << complete_command << endl;
 			break;
 		case cUnloadPlugin : 
 			complete_command = "unload_plugin ";
@@ -147,21 +147,22 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 SockError ClientSocket::ReceiveReply(SockMessage *msg) {
 	SockError err = eNone;
 	int valread;
-	int len = 0;
-	ioctl(sockfd, FIONREAD, &len);
-	cout << "Expected length of reply = " << len  << endl;
-	char buffer[len];
+	char buffer[BUFLEN];
 	int bytes_read = 0;
-	do {
-		valread = recv( sockfd , buffer + bytes_read, len - bytes_read, 0);
+	while(1) {
+		valread = recv( sockfd, buffer, BUFLEN, 0);
     		if (valread <= 0){
 			err = eOther;
 			return err;
 		}
 		bytes_read += valread;
-	}while (bytes_read < len);
-
-	cout  << "Reply :\n " << buffer << endl;
+		string compare(buffer);
+		//cout  << "Reply : " << buffer << " Bytes read = " << compare.find("cmEOF") << endl;
+		string::size_type n = compare.find("cmEOF");
+		if (n != string::npos){
+			break;
+		}
+	}
 	return err;
 }
 

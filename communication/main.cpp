@@ -27,6 +27,7 @@ using std::localtime;
 using std::put_time;
 using std::ostringstream;
 using std::ofstream;
+using std::to_string;
 
 using namespace communication;
 
@@ -50,6 +51,9 @@ int main(int argc, char** argv) {
 	string begin_trace_addr(DEFAULT_START_ADDR);
 	string end_trace_addr(DEFAULT_END_ADDR);
 	string begin_replay_addr(DEFAULT_REPLAY_START_ADDR);
+	int end_size = std::stoi(DEFAULT_END_ADDR,nullptr,0);
+	int start_size = std::stoi(DEFAULT_START_ADDR, nullptr,0);
+	int record_size = (end_size-start_size)/1024/1024;
 
 	// Parse inputs
 	int option_index = 0;
@@ -130,7 +134,7 @@ int main(int argc, char** argv) {
 
 
 	//Let's mount the FS now - befor loading the plugin
-	system("../src/clear_pmem.sh");
+	//system("../src/clear_pmem.sh");
 	system("mkfs.ext4 -b 4096 /dev/pmem0");
 	system("mount -o dax /dev/pmem0 /mnt/pmem0");
 
@@ -140,9 +144,10 @@ int main(int argc, char** argv) {
 	cout << "Mounted file system ext4-dax" << endl;
 	system("mount | grep ext4");
 
-	
-	system("../src/take_snapshot.sh");
-	system("../src/apply_snapshot.sh");
+	string cmd = "../src/take_snapshot.sh " + to_string(record_size);
+	system(cmd.c_str());
+	cmd = "../src/apply_snapshot.sh " + to_string(record_size);
+	system(cmd.c_str());
 
 
 	//sleep(2);
@@ -192,12 +197,12 @@ int main(int argc, char** argv) {
 	* 	This will stop tracing and the results of the output
 	* 	will be in a file named wt.out on the remote host.  
 	************************************************************/
-        system("ls /mnt/pmem0");
+        /*system("ls /mnt/pmem0");
         system("mount | grep pmem0");
         if (umount("/mnt/pmem0") < 0) {
                 cout << "Error unmounting" << endl;
                 return -1;
-        }
+        }*/
 
 
 	msg = new SockMessage();
@@ -213,12 +218,12 @@ int main(int argc, char** argv) {
 	vm->ReceiveReply(msg);
 
 
-	/*system("ls /mnt/pmem0");
+	system("ls /mnt/pmem0");
 	system("mount | grep pmem0");
 	if (umount("/mnt/pmem0") < 0) {
 		cout << "Error unmounting" << endl;
 		return -1;
-	}*/
+	}
 
 
 	//system("./apply_snapshot.sh");
@@ -246,7 +251,7 @@ int main(int argc, char** argv) {
 	* 6. Unload the replay plugin
 	************************************************************/
 
-	sleep(5);
+	//sleep(5);
         msg = new SockMessage();
         vm->BuildUnloadPluginMsg(msg, 0);
 
