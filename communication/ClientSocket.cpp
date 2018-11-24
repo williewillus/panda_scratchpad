@@ -6,7 +6,7 @@
 #include <cstring>
 #include <sys/ioctl.h>
 
-#include "ClientSide.h"
+#include "ClientSocket.h"
 
 #define BUFLEN 4096
 

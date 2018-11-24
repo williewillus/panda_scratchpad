@@ -7,14 +7,19 @@
 #include <sstream>
 #include <fstream>
 #include <sys/mount.h>
-#include "ClientSide.h"
+#include <cassert>
 
-#define OPTIONS_LIST "b:e:i:p:v"
+#include "communication/ClientSocket.h"
+#include "FSCommands.h"
+
+#define OPTIONS_LIST "b:d:e:f:i:p:v"
 
 // By default the writetracker plugin will trace from 1GB - 1GB+128MB
 #define DEFAULT_START_ADDR "0x40000000"
 #define DEFAULT_END_ADDR "0x48000000"
 #define DEFAULT_REPLAY_START_ADDR "0x48000000"
+#define DEFAULT_FS "NOVA"
+#define DEFAULT_DEV "/dev/pmem0"
 
 using std::string;
 using std::cout;
@@ -35,7 +40,9 @@ static bool verbose_flag;
 
 static struct option harness_options[] = {
 	{ "begin-trace-addr", required_argument, NULL, 'b' },
+	{ "device-path-record", required_argument, NULL, 'd' },
 	{ "end-trace-addr", required_argument, NULL, 'e' },
+	{ "file-system", required_argument, NULL, 'f' },
 	{ "ip", required_argument, NULL, 'i' },
 	{ "port", required_argument, NULL, 'p' },
 	{ "verbose", no_argument, NULL, 'v' },
@@ -51,9 +58,13 @@ int main(int argc, char** argv) {
 	string begin_trace_addr(DEFAULT_START_ADDR);
 	string end_trace_addr(DEFAULT_END_ADDR);
 	string begin_replay_addr(DEFAULT_REPLAY_START_ADDR);
+	string fs(DEFAULT_FS);
+	string record_device_path(DEFAULT_DEV);
 	int end_size = std::stoi(DEFAULT_END_ADDR,nullptr,0);
 	int start_size = std::stoi(DEFAULT_START_ADDR, nullptr,0);
 	int record_size = (end_size-start_size)/1024/1024;
+
+	FSCommands *fs_commands_ = NULL;
 
 	// Parse inputs
 	int option_index = 0;
@@ -69,8 +80,14 @@ int main(int argc, char** argv) {
 			case 'b':
 				begin_trace_addr = string(optarg);
 				break;
+			case 'd':
+				record_device_path = string(optarg);
+				break;
 			case 'e':
 				end_trace_addr = string(optarg);
+				break;
+			case 'f':
+				fs = string(optarg);
 				break;
 			case 'i':
 				remote_ip = string(optarg);
@@ -102,6 +119,9 @@ int main(int argc, char** argv) {
 
 	cout << setw(30) << left << "Tracking until memory address" << setw(2) << left << ":"
 	     << setw(2) << left << end_trace_addr << endl; 
+	
+	cout << setw(30) << left << "Testing file system" << setw(2) << left << ":"
+	     << setw(2) << left << fs << endl; 
 
 	cout << "\n******************************************\n" << endl;
 	
@@ -113,6 +133,10 @@ int main(int argc, char** argv) {
 	string s = "CM_" + os.str() + ".log";
 
 	ofstream log_file(s);
+
+	//Get the FS specific commands handle
+	fs_commands_ = GetFSCommands(fs);
+	assert(fs_commands_ != NULL);
 
 	/***********************************************************
 	* 1. Connect to the Qemu Monitor
@@ -133,26 +157,31 @@ int main(int argc, char** argv) {
 	log_file << "Connected to socket" << endl;
 
 
-	//Let's mount the FS now - befor loading the plugin
-	//system("../src/clear_pmem.sh");
-	system("mkfs.ext4 -b 4096 /dev/pmem0");
-	system("mount -o dax /dev/pmem0 /mnt/pmem0");
+	
+	cout << "----Testing ----" << endl;
+	cout << fs_commands_->GetFSName() << endl;
+	string mnt = "/mnt/pmem0";
+	cout << fs_commands_->GetMkfsCommand(record_device_path, mnt) << endl;
+	cout << fs_commands_->GetMountCommand(record_device_path, mnt) << endl;
+	cout << "----End testing----" << endl;	
 
+
+	system((fs_commands_->GetMkfsCommand(record_device_path, mnt)).c_str());
 	system("umount /mnt/pmem0");
 
-        system("mount -o dax /dev/pmem0 /mnt/pmem0");
-	cout << "Mounted file system ext4-dax" << endl;
-	system("mount | grep ext4");
-
-	string cmd = "../src/take_snapshot.sh " + to_string(record_size);
+	string cmd = "src/take_snapshot.sh " + to_string(record_size);
 	system(cmd.c_str());
-	cmd = "../src/apply_snapshot.sh " + to_string(record_size);
+	cmd = "src/apply_snapshot.sh " + to_string(record_size);
 	system(cmd.c_str());
 
+	system((fs_commands_->GetMountCommand(record_device_path, mnt)).c_str());
+	cout << "Mounted file system" << endl;
+	system("mount | grep pmem");
 
-	//sleep(2);
-	//string command = "mount -o dax /dev/pmem0 /mnt/pmem0";
-	//system(command.c_str());
+
+	//TODO: Not including the mount traffic, results in journal recovery failure
+	// in ext4. But if included, NOVA results in corruption.
+
 	/***********************************************************
 	* 2. Load the writetracker plugin
 	* Build the command to be sent over socket
@@ -175,20 +204,17 @@ int main(int argc, char** argv) {
 		delete vm;
 		return -1;
 	}
-	//sleep(1);
 	vm->ReceiveReply(msg);
 
 	/***********************************************************
 	* 3. Execute the workload
 	************************************************************/
-
-
-
 	//TODO
 	//dummy workload for now
 	//system("./workload seq 4K 4K overwrite 1");
 	//system("./workload seq 1 4K");
 	system("./workload");
+
 
 	/***********************************************************
 	* 4. UnLoad the writetracker plugin
@@ -197,13 +223,6 @@ int main(int argc, char** argv) {
 	* 	This will stop tracing and the results of the output
 	* 	will be in a file named wt.out on the remote host.  
 	************************************************************/
-        /*system("ls /mnt/pmem0");
-        system("mount | grep pmem0");
-        if (umount("/mnt/pmem0") < 0) {
-                cout << "Error unmounting" << endl;
-                return -1;
-        }*/
-
 
 	msg = new SockMessage();
 	vm->BuildUnloadPluginMsg(msg, 0);
@@ -226,8 +245,6 @@ int main(int argc, char** argv) {
 	}
 
 
-	//system("./apply_snapshot.sh");
-
 	/***********************************************************
 	* 5. Load the replay plugin
 	* 	This plugin should replay the serialized 
@@ -243,7 +260,6 @@ int main(int argc, char** argv) {
                 delete vm;
                 return -1;
         }
-        //sleep(1);
         vm->ReceiveReply(msg);
 
 
@@ -251,7 +267,6 @@ int main(int argc, char** argv) {
 	* 6. Unload the replay plugin
 	************************************************************/
 
-	//sleep(5);
         msg = new SockMessage();
         vm->BuildUnloadPluginMsg(msg, 0);
 
@@ -261,20 +276,20 @@ int main(int argc, char** argv) {
                 delete vm;
                 return -1;
         }
-        //sleep(1);
         vm->ReceiveReply(msg);
 
 
 	/***********************************************************
 	* 7. Perform consistency tests
 	************************************************************/
-	system("../src/compare_devices.sh");
+	//system("src/compare_devices.sh");
 
 	/***********************************************************
 	* 8. Cleanup and exit
 	************************************************************/
 
 	delete msg;
+	delete fs_commands_;
 	
 	log_file.close();
 	delete vm;

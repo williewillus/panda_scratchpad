@@ -1,5 +1,5 @@
-#ifndef COMMUNICATION_CLIENT_SIDE_H
-#define COMMUNICATION_CLIENT_SIDE_H
+#ifndef SOCKET_CLIENT_SIDE_H
+#define SOCKET_CLIENT_SIDE_H
 
 #include "QemuSocketUtils.h"
 
@@ -28,4 +28,4 @@ class ClientSocket {
 } // namespace communication
 
 
-#endif // COMMUNICATION_CLIENT_SIDE_H
+#endif // SOCKET_CLIENT_SIDE_H
