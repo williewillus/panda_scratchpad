@@ -16,11 +16,17 @@ endif
 BUILDDIR = ../build
 ROOTDIR = ../
 
+CM_TESTS_EXCLUDE = BaseTestCase.cpp
+CM_TESTS = \
+	$(patsubst %.cpp, %.so, \
+		$(filter-out $(CM_TESTS_EXCLUDE), \
+			$(notdir $(wildcard tests/*.cpp))))
+
 TARGET = $(ROOTDIR)harness
 
-.PHONY: all
+.PHONY: all tests
 
-all: $(BUILDDIR) $(TARGET)
+all: $(BUILDDIR) $(TARGET) tests
 
 $(BUILDDIR): 
 	@mkdir -p $(BUILDDIR)
@@ -36,34 +42,36 @@ $(TARGET): \
 	$(BUILDDIR)/utils/FSCommands.o
 	$(G++) $(OPT) $^ -ldl -o $@
 
+tests: \
+	$(foreach TEST, $(CM_TESTS), $(BUILDDIR)/tests/$(TEST))
+
 $(BUILDDIR)/communication/%.o: communication/%.cpp
 	@mkdir -p $(@D)
-	$(G++) -c $(OPT) -o $@ $<
+	$(G++) -c $(OPT) -fPIC -o $@ $<
 
 $(BUILDDIR)/wrapper/%.o: wrapper/%.cpp
 	@mkdir -p $(@D)
-	$(G++) -c $(OPT) -o $@ $<
+	$(G++) -c $(OPT) -fPIC -o $@ $<
 
 $(BUILDDIR)/results/%.o: results/%.cpp
 	@mkdir -p $(@D)
-	$(G++) -c $(OPT) -o $@ $<
+	$(G++) -c $(OPT) -fPIC -o $@ $<
 
 $(BUILDDIR)/tests/%.o: tests/%.cpp
 	@mkdir -p $(@D)
-	$(G++) -c $(OPT) -o $@ $<
+	$(G++) -c $(OPT) -fPIC -o $@ $<
 
 $(BUILDDIR)/utils/%.o: utils/%.cpp
 	@mkdir -p $(@D)
-	$(G++) -c $(OPT) -o $@ $<
+	$(G++) -c $(OPT) -fPIC -o $@ $<
 
-$(BUILD_DIR)/tests/%.so: \
-		tests/%.cpp \
-		$(BUILD_DIR)/tests/BaseTestCase.o \
-		$(BUILD_DIR)/wrapper/actions.o \
-		$(BUILD_DIR)/wrapper/workload.o \
-		$(BUILD_DIR)/wrapper/wrapper.o \
-		$(BUILD_DIR)/wrapper/DiskMod.o \
-		$(BUILD_DIR)/results/DataTestResult.o
-	mkdir -p $(@D)
+$(BUILDDIR)/tests/%.so: tests/%.cpp \
+		$(BUILDDIR)/tests/BaseTestCase.o \
+		$(BUILDDIR)/wrapper/actions.o \
+		$(BUILDDIR)/wrapper/workload.o \
+		$(BUILDDIR)/wrapper/wrapper.o \
+		$(BUILDDIR)/wrapper/DiskMod.o \
+		$(BUILDDIR)/results/DataTestResult.o
+	@mkdir -p $(@D)
 	$(G++) $(OPT) $(GOTPSSO) $(XATTR_DEF_FLAG) -Wl,-soname,$(notdir $@) \
 -o $@ $^
