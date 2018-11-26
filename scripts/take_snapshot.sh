@@ -5,4 +5,4 @@ if [ "$#" -ne 1 ]; then
 fi
 
 sizeMB=$1
-dd if=/dev/pmem0 of=dump.snap bs=1M count=$sizeMB
+dd if=/dev/pmem0 of=/mnt/ramdisk/dump.snap bs=1M count=$sizeMB

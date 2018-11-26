@@ -2,6 +2,13 @@
 
 - Experimentation with the [PANDA](https://www.github.com/panda-re/panda) instrumentation tools for QEMU
 
+#Dependencies
+* Assumes that /mnt/pmem0 and /mnt/pmem1 mount points exist
+* Assumes that the pmem devices /dev/pmem0 and /dev/pmem1 exist
+* Assumes that a ramdisk(atleast 128MB) exists and is mounted at /mnt/ramdisk, in order to write to and read snapshots
+	* mkdir /mnt/ramdisk
+	* mount -t tmpfs -o size=256m tmpfs /mnt/ramdisk
+
 # QEMU Setup
 * Clone this repo: github.com/williewillus/panda_scratchpad
 * Clone panda: github.com/panda-re/panda
