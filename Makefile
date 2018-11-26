@@ -1,5 +1,5 @@
 BUILD_DIR = build
-SUBDIR = communication
+SUBDIR = src
 
 .PHONY: all clean $(SUBDIR)
 

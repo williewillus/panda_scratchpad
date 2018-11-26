@@ -10,7 +10,7 @@
 #include <cassert>
 
 #include "communication/ClientSocket.h"
-#include "FSCommands.h"
+#include "utils/FSCommands.h"
 
 #define OPTIONS_LIST "b:d:e:f:i:p:v"
 
@@ -169,9 +169,9 @@ int main(int argc, char** argv) {
 	system((fs_commands_->GetMkfsCommand(record_device_path, mnt)).c_str());
 	system("umount /mnt/pmem0");
 
-	string cmd = "src/take_snapshot.sh " + to_string(record_size);
+	string cmd = "scripts/take_snapshot.sh " + to_string(record_size);
 	system(cmd.c_str());
-	cmd = "src/apply_snapshot.sh " + to_string(record_size);
+	cmd = "scripts/apply_snapshot.sh " + to_string(record_size);
 	system(cmd.c_str());
 
 	system((fs_commands_->GetMountCommand(record_device_path, mnt)).c_str());
@@ -282,7 +282,7 @@ int main(int argc, char** argv) {
 	/***********************************************************
 	* 7. Perform consistency tests
 	************************************************************/
-	//system("src/compare_devices.sh");
+	//system("scripts/compare_devices.sh");
 
 	/***********************************************************
 	* 8. Cleanup and exit
