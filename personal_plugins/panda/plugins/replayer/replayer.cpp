@@ -36,8 +36,12 @@ extern "C" bool init_plugin(void *self) {
       input.read(reinterpret_cast<char*>(&write_size), sizeof(write_size));
       write_data.resize(write_size);
       input.read((char*) write_data.data(), write_size);
+      /*if (offset == 0x11c8) {
+	std::cout << "Terminating early" << std::endl;
+	return true;
+      }*/
       panda_physical_memory_rw(base + offset, write_data.data(), write_size, true);
-      std::cout << "[pc 0x" << std::hex << pc << "] write to offset " << offset << ", size " << write_size << std::endl;
+      std::cout << "[pc 0x" << std::hex << pc << "] write to offset " << offset << " addr " << base + offset << ", size " << write_size << std::endl;
       break;
     }
     case FLUSH: {
