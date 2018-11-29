@@ -160,8 +160,12 @@ int Tester::test_run(const int change_fd, const int checkpoint) {
 }
 
 // The device_path is that of the replay device
-vector<milliseconds> Tester::test_check(const string device_path, SingleTestInfo &test_info) {
+vector<milliseconds> Tester::test_check(const string device_path, ofstream &log) {
+	assert(current_test_suite_ != NULL);
 	vector<milliseconds> res(3, duration<int, std::milli>(-1));
+	SingleTestInfo test_info;
+	unsigned int test_num = 1;
+	test_info.test_num = test_num++;
 
 	// This funstion will be called after the replay i.e. 
 	// the replay_device is in an unmounted state.
@@ -173,37 +177,39 @@ vector<milliseconds> Tester::test_check(const string device_path, SingleTestInfo
 		test_info.fs_test.SetError(FileSystemTestResult::kKernelMount);
 		return res;
 	}
+
+	if (mount_device(record_device_path, MNT_POINT_RECORD) != SUCCESS) {
+		test_info.fs_test.SetError(FileSystemTestResult::kKernelMount);
+		return res;
+	}
+
+	cout << "Mounted both record and replay device for checks" << endl;
+	system("mount | grep pmem");
+	system("ls /mnt/pmem0");
+	system("ls /mnt/pmem1");
+	cout << "Checking using system diff command" << endl;
+	system("diff -qr /mnt/pmem0 /mnt/pmem1");
+
+
 	time_point<steady_clock> mount_end_time = steady_clock::now();
 	res.at(2) = duration_cast<milliseconds>(mount_end_time - mount_start_time);	
 
-
 	// Once mounted, begin testing
 	time_point<steady_clock> test_case_start_time = steady_clock::now();
-	bool retVal = check_disk_and_snapshot_contents(record_device_path);
+	bool retVal = check_disk_and_snapshot_contents();
 	if (!retVal) {
 		test_info.data_test.SetError(tests::DataTestResult::kAutoCheckFailed);
 	} 
 	time_point<steady_clock> test_case_end_time = steady_clock::now();
 	res.at(1) = duration_cast<milliseconds>(test_case_end_time - test_case_start_time);
 
-	// at this point, the replay device is mounted. So unmount it
-	mount_start_time = steady_clock::now();
-	int umount_res;
-	int err;
-	do {
-		umount_res = umount_device();
-		if (umount_res < 0) {
-			err = errno;
-			usleep(500);
-		}
-	} while (umount_res < 0 && err == EBUSY);
-	mount_end_time = steady_clock::now();
-	res.at(2) += duration_cast<milliseconds>(mount_end_time - mount_start_time);
-
+	test_info.PrintResults(log);
+	current_test_suite_->TallyTimingResult(test_info);
 	return res;
 }
 
-bool Tester::check_disk_and_snapshot_contents(string disk_path) {
+
+bool Tester::check_disk_and_snapshot_contents() {
 	
 	// we will check only the last checkpoint
 	// so the oracle is the record device, and the replay device
@@ -212,9 +218,56 @@ bool Tester::check_disk_and_snapshot_contents(string disk_path) {
 	diff_file.open("diff", std::fstream::out | std::fstream::app);
 	DiskContents disk1(record_device_path, fs), disk2(replay_device_path, fs);
 	disk1.set_mount_point(MNT_POINT_RECORD);
-	// TODO : complete consistency checks
-	
-	return true;
+	disk2.set_mount_point(MNT_POINT_REPLAY);
+
+	int num_mods = mods_.size() - 1;
+	cout << "Num mods " << num_mods << endl;
+	// get the file/dir corresponding to the last checkpoint operation
+	for (auto last_mod : mods_.at(num_mods-1)) {
+		cout << "last mod" << last_mod.mod_type << endl;
+		if (last_mod.mod_type == DiskMod::kFsyncMod) {
+			string path(last_mod.path);
+			cout << "Last checkpoint was fsync to " << path << endl;
+			path.erase(0, 10);
+			std::cout << "File path : " << path << std::endl;
+			bool ret = disk1.compare_entries_at_path(disk2, path, diff_file);
+			cout << "Compare entries returned " << ret << endl;
+			if (ret) {
+				if (disk1.sanity_checks(diff_file) == false) {
+					std::cout << "Failed: Sanity checks on " << replay_device_path << endl;
+					return false;
+				}
+			}
+			return ret;
+		}
+		else if (last_mod.mod_type == DiskMod::kSyncMod) {
+			cout << "Last checkpoint was sync" << endl;
+			bool ret = disk1.compare_disk_contents(disk2, diff_file);
+			if (ret) {
+				if (disk1.sanity_checks(diff_file) == false) {
+					std::cout << "Failed: Sanity checks on " << replay_device_path << endl;
+					return false;
+				}
+			}
+			return ret;
+		}
+		else if (last_mod.mod_type == DiskMod::kDataMod || last_mod.mod_type == DiskMod::kSyncFileRangeMod) {
+			string path(last_mod.path);
+			cout << "Last checkpoint was fdatasync to " << path << endl;
+			path.erase(0, 10);
+			bool ret = disk1.compare_file_contents(disk2, path, last_mod.file_mod_location, 
+				last_mod.file_mod_len, diff_file);
+			if (ret) {
+				if (disk1.sanity_checks(diff_file) == false) {
+					std::cout << "Failed: Sanity checks on " << replay_device_path << endl;
+					return false;
+				}
+			}
+			return ret;
+		}
+	}
+	cout << "ERROR: " << __func__ << endl;	
+	return false;
 }
 
 int Tester::GetChangeData(const int fd) {
@@ -256,6 +309,7 @@ int Tester::GetChangeData(const int fd) {
 
     if (mod.mod_type == DiskMod::kCheckpointMod) {
       // We found a checkpoint, so switch to a new set of DiskMods.
+      cout << "Found a checkpoint" << endl;
       mods_.push_back(vector<DiskMod>());
     } else {
       if (mods_.empty()) {

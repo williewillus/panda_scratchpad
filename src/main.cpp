@@ -233,15 +233,22 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 	//system((fs_command_->GetMkfsCommand(record_device_path, mnt)).c_str());
-	
+
+
+	// FOr some reason, NOVA fails to mount if we dont snapshot
+	// after the unmount. FOr now include unmount in the inital snapshot
+	// only for NOVA
+	// TODO: Ask about this in the NOVA mailing list	
 	// umount the device
-	cout << "Unmount the record device" << endl;
-	if (pm_tester.umount_device() != SUCCESS) {
-		cerr << "Error unmounting device" << endl;
-		pm_tester.cleanup_harness();
-		return -1;
+	
+	if (fs.compare("NOVA") == 0) {
+		cout << "Unmount the record device" << endl;
+		if (pm_tester.umount_device() != SUCCESS) {
+			cerr << "Error unmounting device" << endl;
+			pm_tester.cleanup_harness();
+			return -1;
+		}
 	}
-	//system("umount /mnt/pmem0");
 
 
 	// Snapshot the initial FS image
@@ -262,13 +269,16 @@ int main(int argc, char** argv) {
 	//cmd = "scripts/apply_snapshot.sh " + to_string(record_size);
 	//system(cmd.c_str());
 
-	// mount the device back for workload execution
-	if (pm_tester.mount_device(record_device_path, mnt) != SUCCESS) {
-		cerr << "Error mounting the record device" << endl;
-		pm_tester.cleanup_harness();
-		return -1;
+	// if the FS is NOVA, we have unmounted it
+	// before capturing snapshot. 
+	// SO mount it bak again for workload execution
+	if (fs.compare("NOVA") == 0) {
+		if (pm_tester.mount_device(record_device_path, mnt) != SUCCESS) {
+			cerr << "Error mounting the record device" << endl;
+			pm_tester.cleanup_harness();
+			return -1;
+		}
 	}
-	//system((fs_command_->GetMountCommand(record_device_path, mnt)).c_str());
 	cout << "Mounted file system. Ready for workload execution" << endl;
 	system("mount | grep pmem");
 
@@ -375,12 +385,6 @@ int main(int argc, char** argv) {
 		cout << "Is it last checkpoint ? " << last_checkpoint << endl;
 	}while(!last_checkpoint);
 
-	//do
-		// Fork a new process - run the workload
-		// Create 0th checkpoint
-		// Run the test
-		// Update checkpoint number based on return value
-		// if chk is 0, and the test run completes, exit the plugin
 
 	/***********************************************************
 	* 4. UnLoad the writetracker plugin
@@ -404,10 +408,10 @@ int main(int argc, char** argv) {
 
 
 	// umount the record device
-	system("ls /mnt/pmem0");
-	system("mount | grep pmem0");
-	if (umount("/mnt/pmem0") < 0) {
-		cout << "Error unmounting" << endl;
+	cout << "Unmount the record device" << endl;
+	if (pm_tester.umount_device() != SUCCESS) {
+		cerr << "Error unmounting device" << endl;
+		pm_tester.cleanup_harness();
 		return -1;
 	}
 
@@ -417,6 +421,12 @@ int main(int argc, char** argv) {
 	* 	This plugin should replay the serialized 
 	* 	traces in the wt.out file at the host
 	*	starting at memory addr denoted by <end>
+	*	When we receive the EOF reply from the Qemu Monitor, 
+	*	we know this plugin has completed initialization.
+	*	All the replay happens in the initialization
+	*	method of the plugin, so we can be sure
+	*	that the replay is complete, when we receive
+	*	EOF
 	************************************************************/
         msg = new SockMessage();
         vm->BuildLoadPluginMsg(msg, pReplay, begin_replay_addr, end_trace_addr);
@@ -449,8 +459,9 @@ int main(int argc, char** argv) {
 	/***********************************************************
 	* 7. Perform consistency tests
 	************************************************************/
-	//system("scripts/compare_devices.sh");
-	//
+	// At point both record and replay
+	// devices are not mounted.
+	pm_tester.test_check(replay_device_path, log_file);
 
 	/***********************************************************
 	* 8. Cleanup and exit
@@ -458,7 +469,13 @@ int main(int argc, char** argv) {
 	pm_tester.PrintTestStats(cout);
 	delete msg;
 	log_file.close();
+
+	// This will unmount the record device
 	pm_tester.cleanup_harness();
+	
+	// generalize the umount function in Tester
+	system("umount /mnt/pmem1");
+	
 	delete vm;
 	return 0;
 

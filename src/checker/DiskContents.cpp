@@ -232,12 +232,12 @@ bool DiskContents::compare_disk_contents(DiskContents &compare_disk, ofstream &d
     return retValue;
   }
 
-  string base_path = "/mnt/snapshot";
+  string base_path = "/mnt/pmem0";
   get_contents(base_path.c_str());
 
-  if (compare_disk.mount_disk() != 0) {
+ /* if (compare_disk.mount_disk() != 0) {
     cout << "Mounting " << compare_disk.disk_path << " failed" << endl;
-  }
+  }*/
 
   compare_disk.get_contents(compare_disk.get_mount_point().c_str());
 
@@ -293,11 +293,11 @@ bool DiskContents::compare_disk_contents(DiskContents &compare_disk, ofstream &d
       }
     }
   }
-  compare_disk.unmount_and_delete_mount_point();
+  //compare_disk.unmount_and_delete_mount_point();
   return retValue;
 }
 
-// TODO(P.S.) Cleanup the code and pull out redundant code into separate functions
+// compare_disk is the replay device, path is the file/dir to be checked.
 bool DiskContents::compare_entries_at_path(DiskContents &compare_disk,
   string &path, ofstream &diff_file) {
   bool retValue = true;
@@ -306,11 +306,11 @@ bool DiskContents::compare_entries_at_path(DiskContents &compare_disk,
     return retValue;
   }
 
-  string base_path = "/mnt/snapshot" + path;
+  string base_path = "/mnt/pmem0" + path;
 
-  if (compare_disk.mount_disk() != 0) {
+  /*if (compare_disk.mount_disk() != 0) {
     cout << "Mounting " << compare_disk.disk_path << " failed" << endl;
-  }
+  }*/
 
   string compare_disk_mount_point(compare_disk.get_mount_point());
   string compare_path = compare_disk_mount_point + path;
@@ -328,7 +328,7 @@ bool DiskContents::compare_entries_at_path(DiskContents &compare_disk,
   }
 
   if (failed_stat) {
-    compare_disk.unmount_and_delete_mount_point();
+    //compare_disk.unmount_and_delete_mount_point();
     return false;
   }
 
@@ -340,7 +340,7 @@ bool DiskContents::compare_entries_at_path(DiskContents &compare_disk,
     diff_file << base_fa << endl << endl;
     diff_file << compare_path << ":" << endl;
     diff_file << compare_fa << endl << endl;
-    compare_disk.unmount_and_delete_mount_point();
+    //compare_disk.unmount_and_delete_mount_point();
     return false;
   }
 
@@ -352,12 +352,12 @@ bool DiskContents::compare_entries_at_path(DiskContents &compare_disk,
       diff_file << base_path << " has md5sum " << base_fa.md5sum << endl;
       diff_file << compare_path << " has md5sum " << compare_fa.md5sum;
       diff_file << endl << endl;
-      compare_disk.unmount_and_delete_mount_point();
+      //compare_disk.unmount_and_delete_mount_point();
       return false;
     }
   }
 
-  compare_disk.unmount_and_delete_mount_point();
+  //compare_disk.unmount_and_delete_mount_point();
   return retValue;
 }
 
@@ -370,11 +370,11 @@ bool DiskContents::compare_file_contents(DiskContents &compare_disk, string path
     return retValue;
   }
 
-  string base_path = "/mnt/snapshot" + path;
-  if (compare_disk.mount_disk() != 0) {
+  string base_path = "/mnt/pmem0" + path;
+  /*if (compare_disk.mount_disk() != 0) {
     cout << "Mounting " << compare_disk.disk_path << " failed" << endl;
     return false;
-  }
+  }*/
   string compare_disk_mount_point(compare_disk.get_mount_point());
   string compare_path = compare_disk_mount_point + path;
 
@@ -391,7 +391,7 @@ bool DiskContents::compare_file_contents(DiskContents &compare_disk, string path
   }
 
   if (failed_stat) {
-    compare_disk.unmount_and_delete_mount_point();
+    //compare_disk.unmount_and_delete_mount_point();
     return false;
   }
 
@@ -401,7 +401,7 @@ bool DiskContents::compare_file_contents(DiskContents &compare_disk, string path
   if (!f1 || !f2) {
     cout << "Error opening input file streams " << base_path  << " and ";
     cout << compare_path << endl;
-    compare_disk.unmount_and_delete_mount_point();
+    //compare_disk.unmount_and_delete_mount_point();
     return false;
   }
 
@@ -420,7 +420,7 @@ bool DiskContents::compare_file_contents(DiskContents &compare_disk, string path
   buffer_f2[length] = '\0';
 
   if (strcmp(buffer_f1, buffer_f2) == 0) {
-    compare_disk.unmount_and_delete_mount_point();
+    //compare_disk.unmount_and_delete_mount_point();
     return true;
   }
 
@@ -429,7 +429,7 @@ bool DiskContents::compare_file_contents(DiskContents &compare_disk, string path
   diff_file << offset << " of length " << length << endl;
   diff_file << base_path << " has " << buffer_f1 << endl;
   diff_file << compare_path << " has " << buffer_f2 << endl;
-  compare_disk.unmount_and_delete_mount_point();
+  //compare_disk.unmount_and_delete_mount_point();
   return false;
 }
 
@@ -471,7 +471,7 @@ bool DiskContents::deleteFiles(string path, ofstream &diff_file) {
   }
 
   if (isEmptyDirOrFile(path) == true) {
-    if (path.compare("/mnt/snapshot") == 0) {
+    if (path.compare("/mnt/pmem0") == 0) {
       return true;
     }
     if (isFile(path) == true) {
@@ -536,7 +536,7 @@ bool DiskContents::makeFiles(string base_path, ofstream &diff_file) {
 
 bool DiskContents::sanity_checks(ofstream &diff_file) {
   cout << __func__ << endl;
-  string base_path = "/mnt/snapshot";
+  string base_path = "/mnt/pmem0";
   if (!makeFiles(base_path, diff_file)) {
     cout << "Failed: Couldn't create files in all directories" << endl;
     diff_file << "Failed: Couldn't create files in all directories" << endl;

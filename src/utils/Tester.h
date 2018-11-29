@@ -67,6 +67,7 @@ enum time_stats {
 	int test_setup();
 	int test_init_values(std::string mount_dir, long filesys_size);
 	int test_run(const int change_fd, const int checkpoint);
+	std::vector<std::chrono::milliseconds> test_check(const std::string device_path, std::ofstream &log);
 	
 	int test_load_class(const char* path);
 	void test_unload_class();
@@ -89,10 +90,7 @@ private:
 	bool record_dev_mounted = false;
 	std::vector<std::vector<wrapper::DiskMod>> mods_;
 
-	std::vector<std::chrono::milliseconds> test_check(
-		const std::string device_path, SingleTestInfo &test_info);
-
-	bool check_disk_and_snapshot_contents(std::string disk_path);
+	bool check_disk_and_snapshot_contents();
 
 	};
 
