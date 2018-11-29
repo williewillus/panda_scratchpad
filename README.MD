@@ -3,11 +3,17 @@
 - Experimentation with the [PANDA](https://www.github.com/panda-re/panda) instrumentation tools for QEMU
 
 #Dependencies
+* I made a few hacks in the panda repo to append a terminating string to detect end of communication with the QEMU monitor. To use this, clone panda repo from https://github.com/jayashreemohan29/panda.git and git checkout hack
 * Assumes that /mnt/pmem0 and /mnt/pmem1 mount points exist
 * Assumes that the pmem devices /dev/pmem0 and /dev/pmem1 exist
 * Assumes that a ramdisk(atleast 128MB) exists and is mounted at /mnt/ramdisk, in order to write to and read snapshots
 	* mkdir /mnt/ramdisk
 	* mount -t tmpfs -o size=256m tmpfs /mnt/ramdisk
+	
+* Usage
+	* in the root directory : make
+	* ./harness -f NOVA build/tests/test.so
+(Default values for tracking range, FS size etc can be found in the file src/main.cpp)
 
 # QEMU Setup
 * Clone this repo: github.com/williewillus/panda_scratchpad
