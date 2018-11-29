@@ -36,10 +36,15 @@ $(TARGET): \
 	$(BUILDDIR)/communication/ClientSocket.o \
 	$(BUILDDIR)/tests/BaseTestCase.o \
 	$(BUILDDIR)/results/DataTestResult.o \
+	$(BUILDDIR)/results/FileSystemTestResult.o \
+	$(BUILDDIR)/results/SingleTestInfo.o \
+	$(BUILDDIR)/results/TestSuiteResult.o \
 	$(BUILDDIR)/wrapper/DiskMod.o \
 	$(BUILDDIR)/wrapper/wrapper.o \
 	$(BUILDDIR)/wrapper/actions.o \
-	$(BUILDDIR)/utils/FSCommands.o
+	$(BUILDDIR)/utils/FSCommands.o \
+	$(BUILDDIR)/utils/Tester.o \
+	$(BUILDDIR)/checker/DiskContents.o
 	$(G++) $(OPT) $^ -ldl -o $@
 
 tests: \
@@ -62,6 +67,10 @@ $(BUILDDIR)/tests/%.o: tests/%.cpp
 	$(G++) -c $(OPT) -fPIC -o $@ $<
 
 $(BUILDDIR)/utils/%.o: utils/%.cpp
+	@mkdir -p $(@D)
+	$(G++) -c $(OPT) -fPIC -o $@ $<
+
+$(BUILDDIR)/checker/%.o: checker/%.cpp
 	@mkdir -p $(@D)
 	$(G++) -c $(OPT) -fPIC -o $@ $<
 

@@ -15,7 +15,7 @@ class BaseTestCase {
   virtual ~BaseTestCase() {};
   virtual int setup() = 0;
   int Run(const int change_fd, const int checkpoint);
-  virtual int run(const int checkpoint) = 0;
+  virtual int run(int checkpoint) = 0;
   virtual int check_test(unsigned int last_checkpoint,
       DataTestResult *test_result) = 0;
   virtual int init_values(std::string mount_dir, long filesys_size);

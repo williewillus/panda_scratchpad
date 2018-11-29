@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 
+namespace tests {
 
 namespace {
   static const unsigned int kOldFilePersisted_ = 0;
@@ -45,5 +46,6 @@ class DataTestResult {
 
 std::ostream& operator<<(std::ostream& os, DataTestResult::ErrorType err);
 
+}  // namespace tests
 
 #endif  // TESTS_DATA_TEST_ERROR_H

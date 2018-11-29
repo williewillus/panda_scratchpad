@@ -1,5 +1,6 @@
 #include "DataTestResult.h"
 
+namespace tests {
 
 using std::ostream;
 
@@ -64,3 +65,4 @@ ostream& operator<<(ostream& os, DataTestResult::ErrorType err) {
   return os;
 }
 
+}  // namespace tests
