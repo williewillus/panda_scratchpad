@@ -1,9 +1,9 @@
-"Research is what I'm doing when I don't know what I'm doing"
-
-- Experimentation with the [PANDA](https://www.github.com/panda-re/panda) instrumentation tools for QEMU
-
 #Dependencies
-* I made a few hacks in the panda repo to append a terminating string to detect end of communication with the QEMU monitor. To use this, clone panda repo from https://github.com/jayashreemohan29/panda.git and git checkout hack
+* I made a few hacks in the panda repo to append a terminating string to detect end of communication with the QEMU monitor. To use this, clone the panda repo from https://github.com/jayashreemohan29/panda.git and git checkout hack
+
+(Original PANDA repo : [PANDA](https://www.github.com/panda-re/panda))
+
+Before you run the PMTester, make sure the following assumptions are valis on the system you are going to run PM Tester on,
 * Assumes that /mnt/pmem0 and /mnt/pmem1 mount points exist
 * Assumes that the pmem devices /dev/pmem0 and /dev/pmem1 exist
 * Assumes that a ramdisk(atleast 128MB) exists and is mounted at /mnt/ramdisk, in order to write to and read snapshots
@@ -11,18 +11,75 @@
 	* mount -t tmpfs -o size=256m tmpfs /mnt/ramdisk
 	
 * Usage
-	* in the root directory : make
-	* ./harness -f NOVA build/tests/test.so
-(Default values for tracking range, FS size etc can be found in the file src/main.cpp)
+```
+1. Setup panda
+	1. git clone https://github.com/jayashreemohan29/panda.git
+	2. git checkout hack
+	3. cd panda
+	4. ./configure
+	
+	5. cd ..
+	6. git clone https://github.com/williewillus/panda_scratchpad.git
+	7. git checkout jaya_dev
+	8. cd panda
+	9. ./build.sh  --extra-plugins-path=../../panda_scratchpad/personal_plugins --target-list=x86_64-softmmu
+	
+	Now PANDA is setup and ready.
 
-# QEMU Setup
+2. Setup VM
+	1. Spin up a VM running Ubuntu 16.04 or copy the VM image in my home directory on Chennai machine : 
+	/home/jayashree/projects/panda_scratchpad/vm_new.img
+	(This VM has a kernel that supports both NOVA and PMFS, kernel 4.13. It also has 2 pmem devices
+	the first one from 1024MB-1152MB, and the second from 1152MB-1280MB (128MB each))
+
+3. Launch the VM
+	1. cd panda_scratchpad
+	2. ./launch_headless.sh vm_new.img 2G
+		This command launches the VM with 2GB memory, and forwards requests on port 2222, and
+		opens up the qemu monitor on port 4444
+		
+4. Login to the VM and run PMTester
+	1. Start the VM:
+		ssh -p 2222 root@localhost
+	2. Clone the repo : git clone https://github.com/williewillus/panda_scratchpad.git
+	3. cd panda_scratchpad
+	4. checkout jaya_dev
+	5. make
+	6. Setup mount points and ramdisk
+		i. mkdir /mnt/ramdisk
+		ii. mount -t tmpfs -o size=256m tmpfs /mnt/ramdisk
+		iii. mkdir /mnt/pmem0; mkdir /mnt/pmem1
+	7. There's one sample workload j-lang150 which does an unaligned write followed by fsync. 
+	   To run it on NOVA(default),
+	   ./harness build/tests/j-lang150.so
+	   
+	8. To run it on pmfs/ext4-dax, use the -f flag
+	   ./harness -f pmfs build/tests/j-lang150.so
+	   ./harness -f dax build/tests/j-lang150.so
+	   ./harness -f NOVA build/tests/j-lang150.so
+	  (Sorry, the FS names are case sensitive for now. So ensure you type NOVA in caps)
+	
+	(Default values for tracking range, FS size etc can be found in the file src/main.cpp.
+	You can pass these in as flags to the harness.
+	The default IP for commmunicatoing to the QEMU monitor is set to that of chennai machine
+	So be sure to override it by passing the IP of your machine using -i flag)
+	
+	8. After the run, a 'diff' file will be generated in the root directory which mentions the
+	errors that resulted in the bug if the test fails. 
+```
+
+
+
+#Other useful references
+
+## QEMU Setup
 * Clone this repo: github.com/williewillus/panda_scratchpad
 * Clone panda: github.com/panda-re/panda
   * Build panda according to the instructions for Ubuntu 16.04
     * When executing the build.sh file, append these options: `./build.sh --extra_plugins_path=<path_to_this_repo>/personal_plugins --target-list=x86_64-softmmu`. This includes our plugin for compilation and only compiles QEMU for x86_64.
   * If the compilation fails saying something about plugins/network, disable that plugin by removing the line "network" from the `<panda_repo>/panda/plugins/config.panda` file.
 
-# VM Setup and Usage
+## VM Setup and Usage
 * Retrieve the vm image: `scp <user>@chennai.csres.utexas.edu:/home/vincent/SAS_RESEARCH/vm_clean.img <dest>/vm.img`
   * It is a very minimal installation of Arch Linux with a passwordless root account, running a build of NOVA on Linux 4.13
   * The VM image is big, so you can also download Arch Linux and install it yourself if you don't want to download that much
@@ -36,7 +93,7 @@
 * Whenever the plugin is unloaded, it writes all of its tracked writes into `wt.out`, overwriting of it exists already.
 * The out file can be read with the `src/reader.cpp` program (very rough frontend right now, and likely to change)
 
-# Compiling NOVA
+## Compiling NOVA
 * NOTE: Currently, I'm having troubles getting NOVA master (4.18) to run in the VM properly (the pmem devices are not being recognized). For now, we should just continue running the vm with the existing 4.13 kernel
 
 * Clone nova outside the VM: `git clone https://www.github.com/nvsl/linux-nova`
