@@ -1,19 +1,14 @@
-#Dependencies
-* I made a few hacks in the panda repo to append a terminating string to detect end of communication with the QEMU monitor. To use this, clone the panda repo from https://github.com/jayashreemohan29/panda.git and git checkout hack
+# PMTester
+PMTester is a record and replay tool for testing crash-consistency bugs in Persistent memory file systems.
+PMTester makes use of the PANDA instrumentation tool for QEMU to trac the writes to memory.
 
-(Original PANDA repo : [PANDA](https://www.github.com/panda-re/panda))
-
-Before you run the PMTester, make sure the following assumptions are valis on the system you are going to run PM Tester on,
-* Assumes that /mnt/pmem0 and /mnt/pmem1 mount points exist
-* Assumes that the pmem devices /dev/pmem0 and /dev/pmem1 exist
-* Assumes that a ramdisk(atleast 128MB) exists and is mounted at /mnt/ramdisk, in order to write to and read snapshots
-	* mkdir /mnt/ramdisk
-	* mount -t tmpfs -o size=256m tmpfs /mnt/ramdisk
 	
-* Usage
+## Usage
 ```
 1. Setup panda
-	1. git clone https://github.com/jayashreemohan29/panda.git
+	1. I made a few hacks in the panda repo to append a terminating string to detect end of communication 
+	   with the QEMU monitor (Original PANDA repo : [PANDA](https://www.github.com/panda-re/panda))
+	   git clone https://github.com/jayashreemohan29/panda.git
 	2. git checkout hack
 	3. cd panda
 	4. ./configure
@@ -49,6 +44,8 @@ Before you run the PMTester, make sure the following assumptions are valis on th
 		i. mkdir /mnt/ramdisk
 		ii. mount -t tmpfs -o size=256m tmpfs /mnt/ramdisk
 		iii. mkdir /mnt/pmem0; mkdir /mnt/pmem1
+		iv. We assume by default that /dev/pmem0 and /dev/pmem1 devices exist. If they don't,
+		pass the device paths to the harness using -d <record_dev> and -r <replay_dev> flags.
 	7. There's one sample workload j-lang150 which does an unaligned write followed by fsync. 
 	   To run it on NOVA(default),
 	   ./harness build/tests/j-lang150.so
@@ -70,7 +67,7 @@ Before you run the PMTester, make sure the following assumptions are valis on th
 
 
 
-#Other useful references
+# Other useful references
 
 ## QEMU Setup
 * Clone this repo: github.com/williewillus/panda_scratchpad
