@@ -58,22 +58,22 @@ int ClientSocket::Init() {
 	return 0;
 }
 
-void ClientSocket::BuildLoadPluginMsg(SockMessage *msg, Plugins plugin_name, string start, string end ) {
-	msg->q_cmd = cLoadPlugin;
-	msg->need_response = false;
-	msg->q_cmd_options->plugin_name =plugin_name;
-	msg->q_cmd_options->start = start;
-	msg->q_cmd_options->end = end;
+void ClientSocket::BuildLoadPluginMsg(SockMessage& msg, Plugins plugin_name, string start, string end ) {
+	msg.q_cmd = cLoadPlugin;
+	msg.need_response = false;
+	msg.q_cmd_options->plugin_name =plugin_name;
+	msg.q_cmd_options->start = start;
+	msg.q_cmd_options->end = end;
 }
 
 
-void ClientSocket::BuildUnloadPluginMsg(SockMessage *msg, unsigned int idx) {
-	msg->q_cmd = cUnloadPlugin;
-	msg->need_response = false;
-	msg->q_cmd_options->id = idx;
+void ClientSocket::BuildUnloadPluginMsg(SockMessage& msg, unsigned int idx) {
+	msg.q_cmd = cUnloadPlugin;
+	msg.need_response = false;
+	msg.q_cmd_options->id = idx;
 }
 
-SockError ClientSocket::SendCommand( SockMessage *msg ) {
+SockError ClientSocket::SendCommand(const SockMessage& msg) {
 	SockError err = eNone;
 	
 	// First check if the client is connected
@@ -84,8 +84,8 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 	}
 	
 	// Get the command and the arguments
-	QemuCommand cmd = msg->q_cmd;
-	CommandOpts options = *(msg->q_cmd_options);
+	QemuCommand cmd = msg.q_cmd;
+	CommandOpts options = *(msg.q_cmd_options);
 
 	// Based on the command, build the actual message now
 	string complete_command;
@@ -144,7 +144,7 @@ SockError ClientSocket::SendCommand( SockMessage *msg ) {
 	return err;
 }
 
-SockError ClientSocket::ReceiveReply(SockMessage *msg) {
+SockError ClientSocket::ReceiveReply(SockMessage& msg) {
 	SockError err = eNone;
 	int valread;
 	char buffer[BUFLEN];

@@ -298,7 +298,7 @@ int main(int argc, char** argv) {
 	************************************************************/
 
 
-	SockMessage *msg = new SockMessage();
+	SockMessage msg;
 	vm->BuildLoadPluginMsg(msg, pWritetracker, begin_trace_addr, end_trace_addr);
 	
 	if (vm->SendCommand(msg) != eNone ) {
@@ -392,7 +392,7 @@ int main(int argc, char** argv) {
 	* 	will be in a file named wt.out on the remote host.  
 	************************************************************/
 
-	msg = new SockMessage();
+	msg = SockMessage();
 	vm->BuildUnloadPluginMsg(msg, 0);
 	
 	if (vm->SendCommand(msg) != eNone ) {
@@ -425,7 +425,7 @@ int main(int argc, char** argv) {
 	*	that the replay is complete, when we receive
 	*	EOF
 	************************************************************/
-        msg = new SockMessage();
+        msg = SockMessage();
         vm->BuildLoadPluginMsg(msg, pReplay, begin_replay_addr, end_trace_addr);
 
         if (vm->SendCommand(msg) != eNone ) {
@@ -440,7 +440,7 @@ int main(int argc, char** argv) {
 	* 6. Unload the replay plugin
 	************************************************************/
 
-        msg = new SockMessage();
+        msg = SockMessage();
         vm->BuildUnloadPluginMsg(msg, 0);
 
         if (vm->SendCommand(msg) != eNone ) {
@@ -462,7 +462,6 @@ int main(int argc, char** argv) {
 	* 8. Cleanup and exit
 	************************************************************/
 	pm_tester.PrintTestStats(cout);
-	delete msg;
 	log_file.close();
 
 	// This will unmount the record device

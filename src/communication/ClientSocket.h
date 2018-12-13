@@ -12,10 +12,10 @@ class ClientSocket {
 		ClientSocket(std::string address, unsigned int port);
 		~ClientSocket();
 		int Init();
-		void BuildLoadPluginMsg(SockMessage *msg, Plugins plugin_name, std::string start, std::string end);
-		void BuildUnloadPluginMsg(SockMessage *msg, unsigned int idx);
-		SockError SendCommand(SockMessage *msg);
-		SockError ReceiveReply(SockMessage *msg);
+		void BuildLoadPluginMsg(SockMessage& msg, Plugins plugin_name, std::string start, std::string end);
+		void BuildUnloadPluginMsg(SockMessage& msg, unsigned int idx);
+		SockError SendCommand(const SockMessage& msg);
+		SockError ReceiveReply(SockMessage& msg);
 		void CloseConnection();
 	private:
 		int sockfd = -1;
