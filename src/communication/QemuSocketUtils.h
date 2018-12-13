@@ -1,6 +1,8 @@
 #ifndef QEMU_SOCKET_UTILS_H
 #define QEMU_SOCKET_UTILS_H
 
+#include <memory>
+
 namespace communication {
 
 // The client/guest VM would send Qemu monitor messages to the
@@ -36,13 +38,8 @@ typedef enum {
 struct SockMessage {
 	QemuCommand q_cmd;
 	bool need_response;
-	CommandOpts *q_cmd_options;
-	SockMessage() {
-		q_cmd_options = new CommandOpts();
-	}
-	~SockMessage() {
-		delete q_cmd_options;
-	}
+	std::unique_ptr<CommandOpts> q_cmd_options;
+	SockMessage() : q_cmd_options(new CommandOpts()) {}
 };
 
 } // namespace communication

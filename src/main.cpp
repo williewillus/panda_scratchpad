@@ -12,6 +12,7 @@
 
 #include "communication/ClientSocket.h"
 #include "utils/Tester.h"
+#include <memory>
 
 #define OPTIONS_LIST "b:d:e:f:i:p:r:v"
 
@@ -202,14 +203,12 @@ int main(int argc, char** argv) {
 	* 1. Connect to the Qemu Monitor
 	************************************************************/
 
-	ClientSocket* vm = NULL;
-	vm = new ClientSocket(remote_ip, remote_port);
+	std::unique_ptr<ClientSocket> vm(new ClientSocket(remote_ip, remote_port));
 	
 	//initialize and connect to socket 
 	if (vm->Init() < 0) {
 		int err_no = errno;
 		cout << "Error starting socket" << endl;
-		delete vm;
 		return -1;
 	}
 
@@ -305,7 +304,6 @@ int main(int argc, char** argv) {
 	if (vm->SendCommand(msg) != eNone ) {
 		int err_no = errno;
 		cout << "Error sending message" << endl;
-		delete vm;
 		return -1;
 	}
 	vm->ReceiveReply(msg);
@@ -400,7 +398,6 @@ int main(int argc, char** argv) {
 	if (vm->SendCommand(msg) != eNone ) {
 		int err_no = errno;
 		cout << "Error sending message" << endl;
-		delete vm;
 		return -1;
 	}
 	//sleep(1);
@@ -434,7 +431,6 @@ int main(int argc, char** argv) {
         if (vm->SendCommand(msg) != eNone ) {
                 int err_no = errno;
                 cout << "Error sending message" << endl;
-                delete vm;
                 return -1;
         }
         vm->ReceiveReply(msg);
@@ -450,7 +446,6 @@ int main(int argc, char** argv) {
         if (vm->SendCommand(msg) != eNone ) {
                 int err_no = errno;
                 cout << "Error sending message" << endl;
-                delete vm;
                 return -1;
         }
         vm->ReceiveReply(msg);
@@ -476,7 +471,6 @@ int main(int argc, char** argv) {
 	// generalize the umount function in Tester
 	system("umount /mnt/pmem1");
 	
-	delete vm;
 	return 0;
 
 
