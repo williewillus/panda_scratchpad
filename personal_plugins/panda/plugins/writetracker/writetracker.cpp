@@ -8,6 +8,8 @@
 static target_ulong range_start;
 static target_ulong range_end;
 
+static std::ofstream ofs;
+
 static std::unique_ptr<std::ofstream> output;
 
 enum event_type : int {
@@ -24,6 +26,7 @@ static void log_output(target_ulong pc, event_type type, target_ulong offset, ta
     output->write(reinterpret_cast<char*>(&offset), sizeof(offset));
     output->write(reinterpret_cast<char*>(&write_size), sizeof(write_size));
     output->write(reinterpret_cast<char*>(write_data), write_size);
+    ofs << "\nWrite ins " << offset << "\n";
     break;
   }
   case FLUSH: {
@@ -31,7 +34,9 @@ static void log_output(target_ulong pc, event_type type, target_ulong offset, ta
     break;
   }
   default:
-  case FENCE: break;
+  case FENCE:
+    ofs << "\nFence ins";
+    break;
   }
 }
 
@@ -67,12 +72,39 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
     return false;
   }
 
+ if (insn[0] >= 0x88 && insn[0] <= 0x8F){
+	ofs << "\n" << std::hex << static_cast<int>(insn[1]) << " : Store; ";
+	if (insn[1]==0x6 || insn[1]==0x7){
+		ofs << std::hex << static_cast<int>(insn[0]) << " : is the start ins";;
+		uint8_t rm = insn[1] & 7;
+		auto target_reg = reg_from_rm(rm);
+         	target_ulong va = x86_env->regs[target_reg];
+         	target_ulong pa = panda_virt_to_phys(env, va);
+    		//if (pa >= range_start && pa < range_end) {
+			ofs << "\n\tPhy addr = " << pa;
+		//}
+	}
+ }
+
+ if (insn[0] >= 0xA0 && insn[0] <= 0xA5){
+	ofs << "\n" << std::hex << static_cast<int>(insn[1]) << " : Store-A\n";
+ }
+ if ( insn[0] == 0x0F)	
+  {
+	ofs << std::hex << static_cast<int>(insn[1]) <<" : Could be MovNTI";
+	uint8_t rm = insn[2] & 7;
+	auto target_reg = reg_from_rm(rm);
+         target_ulong va = x86_env->regs[target_reg];
+         target_ulong pa = panda_virt_to_phys(env, va);
+	ofs << "\t Phy addr = " << pa;	
+  }
+  
   if (insn[0] == 0x0F && insn[1] == 0xAE)
   {
     if (insn[2] >= 0xE8 && insn[2] <= 0xEF) // exclude lfence
       return false;
     if (insn[2] >= 0xF0 /* && insn[2] <= 0xFF*/) { // mfence 0xF0-0xF7, sfence 0xF8-0xFF
-      if (!is_translate)
+     // if (!is_translate)
         log_output(pc, FENCE, 0, 0, nullptr);
       return true;
     } 
@@ -118,6 +150,7 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
     }
   }
 
+
   return false;
 }
 
@@ -140,14 +173,16 @@ extern "C" int monitor_callback(Monitor* mon, const char* cmd) {
 extern "C" bool init_plugin(void *self) {
     panda_arg_list *args = panda_get_args("writetracker");
     range_start = panda_parse_ulong_opt(args, "start", 0x40000000, "Start address tracking range, default 1G");
-    range_end = panda_parse_ulong_opt(args, "end", 0x60000000, "End address (exclusive) of tracking range, default 1.5G"); 
+    range_end = panda_parse_ulong_opt(args, "end", 0x48000000, "End address (exclusive) of tracking range, default 1G+128MB"); 
     std::cout << "writetracker loading" << std::endl;
     std::cout << "tracking range [" << std::hex << range_start << ", " << std::hex << range_end << ")" << std::endl;
 
+    panda_do_flush_tb();
     // Need this to get EIP with our callbacks
     panda_enable_precise_pc();
     // Enable memory logging
     panda_enable_memcb();
+    //panda_do_flush_tb();
 
     panda_cb pcb {};
     pcb.insn_translate = translate_callback;
@@ -167,10 +202,15 @@ extern "C" bool init_plugin(void *self) {
 
     output = std::unique_ptr<std::ofstream>(new std::ofstream("wt.out", std::ios::binary));
 
+    ofs.open ("out.log", std::ofstream::out);
     return true;
 }
 
 extern "C" void uninit_plugin(void *self) {
     output.reset();
+    ofs.close();
     panda_disable_memcb();
+    panda_disable_precise_pc();
+    panda_do_flush_tb();
+    (void) self;
 }
