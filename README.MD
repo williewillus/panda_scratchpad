@@ -1,3 +1,6 @@
+### ARCHIVED
+This repository has moved permanently to https://github.com/utsaslab/crashmonkey-PM
+
 # PMTester
 PMTester is a record and replay tool for testing crash-consistency bugs in Persistent memory file systems.
 PMTester makes use of the PANDA instrumentation tool for QEMU to trac the writes to memory.
