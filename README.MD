@@ -15,7 +15,7 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to track the write
 	5. cd ..
 	6. git clone https://github.com/utsaslab/crashmonkey-PM.git
 	7. cd panda
-	8. ./build.sh  --extra-plugins-path=../../panda_scratchpad/personal_plugins --target-list=x86_64-softmmu
+	8. ./build.sh  --extra-plugins-path=../../crashmonkey-PM/personal_plugins --target-list=x86_64-softmmu
 	
 	Now PANDA is setup and ready.
 
@@ -25,7 +25,7 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to track the write
 	(This VM is a minimal installation of Arch Linux and has a kernel that supports both NOVA and PMFS, kernel 4.13. It also has 2 pmem devices - the first one from 1024MB-1152MB, and the second from 1152MB-1280MB (128MB each))
 
 3. Launch the VM
-	1. cd panda_scratchpad
+	1. cd crashmonkey-PM
 	2. ./launch_headless.sh vm_new.img 2G
 		This command launches the VM with 2GB memory, and forwards requests on port 2222, and
 		opens up the qemu monitor on port 4444
@@ -34,7 +34,7 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to track the write
 	1. Start the VM:
 		ssh -p 2222 root@localhost
 	2. Clone the repo : git clone https://github.com/utsaslab/crashmonkey-PM.git
-	3. cd panda_scratchpad
+	3. cd crashmonkey-PM
 	4. make
 	5. Setup mount points and ramdisk
 		i. mkdir /mnt/ramdisk
