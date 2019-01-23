@@ -1,6 +1,6 @@
 # PMTester
 PMTester is a record and replay tool for testing crash-consistency bugs in Persistent memory file systems.
-PMTester makes use of the PANDA instrumentation tool for QEMU to trac the writes to memory.
+PMTester makes use of the PANDA instrumentation tool for QEMU to track the writes to memory.
 
 	
 ## Usage
@@ -12,20 +12,17 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to trac the writes
 	2. git checkout hack
 	3. cd panda
 	4. ./configure
-	
 	5. cd ..
-	6. git clone https://github.com/williewillus/panda_scratchpad.git
-	7. git checkout jaya_dev
-	8. cd panda
-	9. ./build.sh  --extra-plugins-path=../../panda_scratchpad/personal_plugins --target-list=x86_64-softmmu
+	6. git clone https://github.com/utsaslab/crashmonkey-PM.git
+	7. cd panda
+	8. ./build.sh  --extra-plugins-path=../../panda_scratchpad/personal_plugins --target-list=x86_64-softmmu
 	
 	Now PANDA is setup and ready.
 
 2. Setup VM
 	1. Spin up a VM running Ubuntu 16.04 or copy the VM image in my home directory on Chennai machine : 
 	/home/jayashree/projects/panda_scratchpad/vm_new.img
-	(This VM has a kernel that supports both NOVA and PMFS, kernel 4.13. It also has 2 pmem devices
-	the first one from 1024MB-1152MB, and the second from 1152MB-1280MB (128MB each))
+	(This VM is a minimal installation of Arch Linux and has a kernel that supports both NOVA and PMFS, kernel 4.13. It also has 2 pmem devices - the first one from 1024MB-1152MB, and the second from 1152MB-1280MB (128MB each))
 
 3. Launch the VM
 	1. cd panda_scratchpad
@@ -36,21 +33,20 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to trac the writes
 4. Login to the VM and run PMTester
 	1. Start the VM:
 		ssh -p 2222 root@localhost
-	2. Clone the repo : git clone https://github.com/williewillus/panda_scratchpad.git
+	2. Clone the repo : git clone https://github.com/utsaslab/crashmonkey-PM.git
 	3. cd panda_scratchpad
-	4. checkout jaya_dev
-	5. make
-	6. Setup mount points and ramdisk
+	4. make
+	5. Setup mount points and ramdisk
 		i. mkdir /mnt/ramdisk
 		ii. mount -t tmpfs -o size=256m tmpfs /mnt/ramdisk
 		iii. mkdir /mnt/pmem0; mkdir /mnt/pmem1
 		iv. We assume by default that /dev/pmem0 and /dev/pmem1 devices exist. If they don't,
 		pass the device paths to the harness using -d <record_dev> and -r <replay_dev> flags.
-	7. There's one sample workload j-lang150 which does an unaligned write followed by fsync. 
+	6. There's one sample workload j-lang150 which does an unaligned write followed by fsync. 
 	   To run it on NOVA(default),
 	   ./harness build/tests/j-lang150.so
 	   
-	8. To run it on pmfs/ext4-dax, use the -f flag
+	7. To run it on pmfs/ext4-dax, use the -f flag
 	   ./harness -f pmfs build/tests/j-lang150.so
 	   ./harness -f dax build/tests/j-lang150.so
 	   ./harness -f NOVA build/tests/j-lang150.so
@@ -69,12 +65,13 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to trac the writes
 
 # Other useful references
 
-## QEMU Setup
-* Clone this repo: github.com/williewillus/panda_scratchpad
+## QEMU and PANDA Setup
+* Clone this repo: https://github.com/utsaslab/crashmonkey-PM.git
 * Clone panda: github.com/panda-re/panda
   * Build panda according to the instructions for Ubuntu 16.04
-    * When executing the build.sh file, append these options: `./build.sh --extra_plugins_path=<path_to_this_repo>/personal_plugins --target-list=x86_64-softmmu`. This includes our plugin for compilation and only compiles QEMU for x86_64.
-  * If the compilation fails saying something about plugins/network, disable that plugin by removing the line "network" from the `<panda_repo>/panda/plugins/config.panda` file.
+    * When executing the build.sh file, append these options: `./build.sh --extra_plugins_path=<path_to_this_repo>/personal_plugins --target-list=x86_64-softmmu`. This includes our plugin for compilation and only compiles QEMU for x86_64
+  * If the compilation fails saying something about plugins/network, disable that plugin by removing the line "network" from the `<panda_repo>/panda/plugins/config.panda` file
+  * If the compilation throws errors with dtc modules, run: `git submodule update --init dtc` and then do `./configure`
 
 ## VM Setup and Usage
 * Retrieve the vm image: `scp <user>@chennai.csres.utexas.edu:/home/vincent/SAS_RESEARCH/vm_clean.img <dest>/vm.img`
