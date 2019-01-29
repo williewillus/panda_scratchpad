@@ -101,6 +101,7 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to track the write
     * Set Device Drivers > NVDIMM and DAX and all their subitems to "\*"    
       * NVDIMM should have at least 5 items, DAX 2. otherwise a config was missed in the processor type section above
     * Set File Systems > Direct Access (CONFIG_FS_DAX) to "\*" and NOVA (CONFIG_FS_NOVA) to "\*"
+    * Set Power Management > ACPI Support > ACPI NVDIMM Firmware Interface Table (CONFIG_ACPI_NFIT)
   * compile the kernel with `make -j5`  
 * Transfer kernel into the (running) VM using `scp -p 2222 arch/x86_64/boot/bzImage root@localhost:/boot/vmlinuz-linux-nova`
 * Reboot the VM from SSH
