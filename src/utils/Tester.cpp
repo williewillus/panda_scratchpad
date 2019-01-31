@@ -325,9 +325,6 @@ int Tester::GetChangeData(const int fd) {
 }
 
 int Tester::CreateCheckpoint() {
-        // Issue an unusual, old instruction so that writetracker can pick it up and record a checkpoint in wt.out
-        // fdisi is an old "disable floating point interrupts" instruction that is a nop on modern CPUs
-        asm volatile("fdisi");
 	return SUCCESS;
 }
 
