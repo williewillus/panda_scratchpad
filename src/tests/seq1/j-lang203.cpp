@@ -7,7 +7,7 @@
 #include <dirent.h>
 #include <cstring>
 #include <errno.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 
 #include "../BaseTestCase.h"
 #include "../../wrapper/workload.h"

@@ -7,12 +7,6 @@ KERNEL_VERSION := $(shell uname -r)
 KERNEL_MAJ := $(shell echo $(KERNEL_VERSION) | cut -f1 -d.)
 KERNEL_MIN := $(shell echo $(KERNEL_VERSION) | cut -f2 -d.)
 
-XATTR_DEF_FLAG :=
-ifeq ($(shell [ $(KERNEL_MAJ) -gt 4 -o \
-	\( $(KERNEL_MAJ) -eq 4 -a $(KERNEL_MIN) -ge 15 \) ] && echo true), true)
-XATTR_DEF_FLAG := -DNEW_XATTR_INC
-endif
-
 BUILDDIR = ../build
 ROOTDIR = ../
 
