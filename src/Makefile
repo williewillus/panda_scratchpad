@@ -22,11 +22,20 @@ CM_TESTS = \
 		$(filter-out $(CM_TESTS_EXCLUDE), \
 			$(notdir $(wildcard tests/*.cpp))))
 
+CM_SEQ1_EXCLUDE = base.cpp
+CM_SEQ1 = \
+	$(patsubst %.cpp, %.so, \
+		$(filter-out $(CM_SEQ1_EXCLUDE), \
+			$(notdir $(wildcard $(CURDIR)/tests/seq1/*.cpp))))
+CM_SEQ1_OUT = \
+	$(foreach TEST, $(CM_SEQ1), \
+		$(BUILDDIR)/tests/seq1/$(TEST))
+
 TARGET = $(ROOTDIR)harness
 
-.PHONY: all tests
+.PHONY: all tests seq1
 
-all: $(BUILDDIR) $(TARGET) tests
+all: $(BUILDDIR) $(TARGET) tests seq1
 
 $(BUILDDIR): 
 	@mkdir -p $(BUILDDIR)
@@ -49,6 +58,8 @@ $(TARGET): \
 
 tests: \
 	$(foreach TEST, $(CM_TESTS), $(BUILDDIR)/tests/$(TEST))
+
+seq1: $(CM_SEQ1_OUT)
 
 $(BUILDDIR)/communication/%.o: communication/%.cpp
 	@mkdir -p $(@D)
@@ -84,3 +95,16 @@ $(BUILDDIR)/tests/%.so: tests/%.cpp \
 	@mkdir -p $(@D)
 	$(G++) $(OPT) $(GOTPSSO) $(XATTR_DEF_FLAG) -Wl,-soname,$(notdir $@) \
 -o $@ $^
+
+$(CM_SEQ1_OUT): $(BUILD_DIR)/tests/seq1/%.so : \
+                tests/seq1/%.cpp \
+                $(BUILD_DIR)/tests/BaseTestCase.o \
+                $(BUILD_DIR)/wrapper/actions.o \
+                $(BUILD_DIR)/wrapper/wrapper.o \
+                $(BUILD_DIR)/wrapper/DiskMod.o \
+                $(BUILD_DIR)/communication/ClientSocket.o \
+                $(BUILD_DIR)/results/DataTestResult.o
+	@mkdir -p $(@D)
+	$(G++) $(OPT) $(GOTPSSO) $(XATTR_DEF_FLAG) -Wl,-soname,$(notdir $@) \
+                -o $@ $^
+
