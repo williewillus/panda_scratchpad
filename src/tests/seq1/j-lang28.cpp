@@ -10,18 +10,17 @@
 #include <attr/xattr.h>
 
 #include "../BaseTestCase.h"
-#include "../../user_tools/api/workload.h"
-#include "../../user_tools/api/actions.h"
+#include "../../wrapper/workload.h"
+#include "../../wrapper/actions.h"
 
-using fs_testing::tests::DataTestResult;
-using fs_testing::user_tools::api::WriteData;
-using fs_testing::user_tools::api::WriteDataMmap;
-using fs_testing::user_tools::api::Checkpoint;
+using tests::DataTestResult;
+using wrapper::WriteData;
+using wrapper::WriteDataMmap;
+using wrapper::Checkpoint;
 using std::string;
 
 #define TEST_FILE_PERMS  ((mode_t) (S_IRWXU | S_IRWXG | S_IRWXO))
 
-namespace fs_testing {
     namespace tests {
         
         
@@ -135,12 +134,11 @@ namespace fs_testing {
             };
                        
     }  // namespace tests
-    }  // namespace fs_testing
                        
-   extern "C" fs_testing::tests::BaseTestCase *test_case_get_instance() {
-       return new fs_testing::tests::testName;
+   extern "C" tests::BaseTestCase *test_case_get_instance() {
+       return new tests::testName;
    }
                        
-   extern "C" void test_case_delete_instance(fs_testing::tests::BaseTestCase *tc) {
+   extern "C" void test_case_delete_instance(tests::BaseTestCase *tc) {
        delete tc;
    }
