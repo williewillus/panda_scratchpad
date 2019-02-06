@@ -4,10 +4,10 @@
 namespace wrapper {
 
 int Checkpoint() {
-  //ClientCommandSender c(kSocketNameOutbound, SocketMessage::kCheckpoint,
-  //    SocketMessage::kCheckpointDone);
-  //return c.Run();
-  return 1;
+  // Issue an unusual, old instruction so that writetracker can pick it up and record a checkpoint in wt.out
+  // fdisi is an old "disable floating point interrupts" instruction that is a nop on modern CPUs
+  asm volatile("fdisi");
+  return 0;
 }
 
 } // wrapper
