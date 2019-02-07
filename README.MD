@@ -75,7 +75,7 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to track the write
 
 ## VM Setup and Usage
 * Retrieve the vm image: `scp <user>@chennai.csres.utexas.edu:/home/vincent/SAS_RESEARCH/vm_clean.img <dest>/vm.img`
-  * It is a very minimal installation of Arch Linux with a passwordless root account, running a build of NOVA on Linux 4.13
+  * It is a very minimal installation of Arch Linux with a passwordless root account, running a build of NOVA
   * The VM image is big, so you can also download Arch Linux and install it yourself if you don't want to download that much
 * Boot QEMU using the launch.sh or launch_headless.sh scripts in this repo
   * It assumes the panda repo is a sibling directory of this repo
@@ -88,15 +88,20 @@ PMTester makes use of the PANDA instrumentation tool for QEMU to track the write
 * The out file can be read with the `src/reader.cpp` program (very rough frontend right now, and likely to change)
 
 ## Compiling NOVA
-* NOTE: Currently, I'm having troubles getting NOVA master (4.18) to run in the VM properly (the pmem devices are not being recognized). For now, we should just continue running the vm with the existing 4.13 kernel
-
 * Clone nova outside the VM: `git clone https://www.github.com/nvsl/linux-nova`
   * cd into it and `make clean mrproper defconfig nconfig`
   * in the gui that pops up:
     * Set General Setup > Local Version to "-nova"
-    * Set Processor Type and Features > Transparent Hugepage Support (CONFIG_TRANSPARENT_HUGEPAGE) and Support non-standard NVDIMMs... (CONFIG_X86_PMEM_LEGACY) to "\*"
+    * Under processor type and features, set the following to "\*":
+      * Transparent Hugepage Support (CONFIG_TRANSPARENT_HUGEPAGE)
+      * Support non-standard NVDIMMs... (CONFIG_X86_PMEM_LEGACY)
+      * Allow for memory hot-add (CONFIG_MEMORY_HOTPLUG)
+      * Allow for memory hot-remove (CONFIG_MEMORY_HOTREMOVE)
+      * Device memory hotplug support (CONFIG_ZONE_DEVICE)
     * Set Device Drivers > NVDIMM and DAX and all their subitems to "\*"    
+      * NVDIMM should have at least 5 items, DAX 2. otherwise a config was missed in the processor type section above
     * Set File Systems > Direct Access (CONFIG_FS_DAX) to "\*" and NOVA (CONFIG_FS_NOVA) to "\*"
+    * Set Power Management > ACPI Support > ACPI NVDIMM Firmware Interface Table (CONFIG_ACPI_NFIT)
   * compile the kernel with `make -j5`  
 * Transfer kernel into the (running) VM using `scp -p 2222 arch/x86_64/boot/bzImage root@localhost:/boot/vmlinuz-linux-nova`
 * Reboot the VM from SSH

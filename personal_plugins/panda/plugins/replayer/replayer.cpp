@@ -4,14 +4,16 @@
 
 #include "panda/plugin.h"
 
-static const int WRITE = 0;
-static const int FLUSH = 1;
-static const int FENCE = 2;
+static constexpr int WRITE = 0;
+static constexpr int FLUSH = 1;
+static constexpr int FENCE = 2;
+static constexpr int CHECKPOINT = 3;
 
 extern "C" bool init_plugin(void *self) {
     panda_arg_list *args = panda_get_args("replayer");
     auto base = panda_parse_ulong_opt(args, "base", 0x40000000, "Base physical address to replay at");
     auto file = panda_parse_string(args, "file", "wt.out");
+    auto stop_checkpoint = panda_parse_ulong_opt(args, "checkpoint", 1, "Which (1-indexed) checkpoint to stop at");
     
     std::cout << "replayer starting at " << std::hex << base << std::endl;
 
@@ -26,6 +28,7 @@ extern "C" bool init_plugin(void *self) {
   uint64_t offset;
   uint64_t write_size;
   std::vector<uint8_t> write_data;
+  uint32_t last_checkpoint_seen = 0;
 
   while (input) {
     input.read(reinterpret_cast<char*>(&pc), sizeof(pc));
@@ -53,8 +56,16 @@ extern "C" bool init_plugin(void *self) {
       std::cout << "[pc 0x" << std::hex << pc << "] mfence or sfence" << std::endl;
       break;
     }
+    case CHECKPOINT: {
+      last_checkpoint_seen++;
+      if (last_checkpoint_seen == stop_checkpoint)
+        goto done;
+      else break;
+    }
     }
   }
+
+done:
   std::cout << "replay done" << std::endl;
   return true;
 }

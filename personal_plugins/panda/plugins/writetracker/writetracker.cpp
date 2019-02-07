@@ -16,6 +16,7 @@ enum event_type : int {
   WRITE,
   FLUSH,
   FENCE,
+  CHECKPOINT,
 };
 
 static void log_output(target_ulong pc, event_type type, target_ulong offset, target_ulong write_size, void* write_data) {
@@ -37,6 +38,7 @@ static void log_output(target_ulong pc, event_type type, target_ulong offset, ta
   case FENCE:
     ofs << "\nFence ins";
     break;
+  case CHECKPOINT: ofs << "\nCheckpoint"; break;
   }
 }
 
@@ -63,7 +65,7 @@ static int reg_from_rm(uint8_t rm) {
   }
 }
 
-static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
+static bool try_capture(CPUState *env, target_ulong pc, bool is_translate) {
   auto x86_env = (CPUX86State *)((CPUState*) env->env_ptr);
   uint8_t insn[4];
   int err = panda_virtual_memory_read(env, pc, insn, 4);
@@ -99,12 +101,13 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
 	ofs << "\t Phy addr = " << pa;	
   }
   
+  // clflush and fences
   if (insn[0] == 0x0F && insn[1] == 0xAE)
   {
     if (insn[2] >= 0xE8 && insn[2] <= 0xEF) // exclude lfence
       return false;
     if (insn[2] >= 0xF0 /* && insn[2] <= 0xFF*/) { // mfence 0xF0-0xF7, sfence 0xF8-0xFF
-     // if (!is_translate)
+      if (!is_translate)
         log_output(pc, FENCE, 0, 0, nullptr);
       return true;
     } 
@@ -128,6 +131,7 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
     }
   }
   
+  // clwb and clflushopt
   if (insn[0] == 0x66 && insn[1] == 0x0F && insn[2] == 0xAE)
   {
     uint8_t reg = (insn[3] >> 3) & 7;
@@ -150,23 +154,23 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
     }
   }
 
+  // fdisi
+  if (insn[0] == 0x9b && insn[1] == 0xdb && insn[2] == 0xe1) {
+    log_output(pc, CHECKPOINT, 0, 0, nullptr);
+    return true;
+  }
 
   return false;
 }
 
 extern "C" bool translate_callback(CPUState *env, target_ulong pc) {
-  return check_flush(env, pc, false);
+  return try_capture(env, pc, false);
 }
 
 extern "C" int exec_callback(CPUState *env, target_ulong pc) {
-  if (!check_flush(env, pc, true)) {
-    std::cout << "WARNING: exec callback running for non-flush!" << std::endl;
+  if (!try_capture(env, pc, true)) {
+    std::cout << "WARNING: exec callback running for something we're not interested in!" << std::endl;
   }
-  return 0;
-}
-
-extern "C" int monitor_callback(Monitor* mon, const char* cmd) {
-  std::cout << "Got command " << cmd << std::endl;
   return 0;
 }
 
@@ -195,10 +199,6 @@ extern "C" bool init_plugin(void *self) {
     pcb = {};
     pcb.phys_mem_after_write = mem_write_callback;
     panda_register_callback(self, PANDA_CB_PHYS_MEM_AFTER_WRITE, pcb);
-
-    pcb = {};
-    pcb.monitor = monitor_callback;
-    panda_register_callback(self, PANDA_CB_MONITOR, pcb);
 
     output = std::unique_ptr<std::ofstream>(new std::ofstream("wt.out", std::ios::binary));
 
