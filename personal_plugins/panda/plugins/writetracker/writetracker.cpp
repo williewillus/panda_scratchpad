@@ -154,8 +154,8 @@ static bool try_capture(CPUState *env, target_ulong pc, bool is_translate) {
     }
   }
 
-  // fdisi
-  if (insn[0] == 0x9b && insn[1] == 0xdb && insn[2] == 0xe1) {
+  // f2xm1 
+  if (insn[0] == 0xd9 && insn[1] == 0xf0) {
     log_output(pc, CHECKPOINT, 0, 0, nullptr);
     return true;
   }
