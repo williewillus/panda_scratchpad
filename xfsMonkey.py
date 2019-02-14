@@ -157,7 +157,7 @@ def main():
 					if retry == 4 and p_status != 0 :
 						log_file_handle.write(get_time_string() + 'Could not run test : ' + filename.replace('.so', ''))
 					else:
-						log_file_handle.write(res_final)	
+						log_file_handle.write(str(res_final))
 					break
 				else:
 					error = re.sub(br'(?s).*error', b'\nError', output, flags=re.I)
