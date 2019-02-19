@@ -156,7 +156,8 @@ static bool try_capture(CPUState *env, target_ulong pc, bool is_translate) {
 
   // f2xm1 
   if (insn[0] == 0xd9 && insn[1] == 0xf0) {
-    log_output(pc, CHECKPOINT, 0, 0, nullptr);
+    if (!is_translate)
+      log_output(pc, CHECKPOINT, 0, 0, nullptr);
     return true;
   }
 
